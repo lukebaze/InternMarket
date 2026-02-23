@@ -3,13 +3,8 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
-import dynamic from "next/dynamic";
-
-const ConnectButton = dynamic(
-  () => import("@rainbow-me/rainbowkit").then((m) => m.ConnectButton),
-  { ssr: false }
-);
 import { cn } from "@/lib/utils";
+import { WalletButton } from "@/components/auth/wallet-button";
 
 const NAV_LINKS = [
   { href: "/agents", label: "Browse Agents" },
@@ -48,13 +43,8 @@ export function Header() {
         </nav>
 
         <div className="flex items-center gap-3">
-          {/* Wallet connect via RainbowKit */}
           <div className="hidden sm:block">
-            <ConnectButton
-              chainStatus="icon"
-              accountStatus="address"
-              showBalance={false}
-            />
+            <WalletButton />
           </div>
 
           {/* Mobile hamburger */}

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import { AuthProvider } from "@/components/auth/auth-provider";
+import { Providers } from "@/components/providers";
 import { Header } from "@/components/layout/header";
 import { Footer } from "@/components/layout/footer";
 
@@ -28,11 +28,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en">
       <body className="min-h-screen flex flex-col bg-bg-page font-mono text-text-primary">
-        <AuthProvider>
+        <Providers>
           <Header />
           <main className="flex-1">{children}</main>
           <Footer />
-        </AuthProvider>
+        </Providers>
       </body>
     </html>
   );
