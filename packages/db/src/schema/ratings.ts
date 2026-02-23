@@ -1,4 +1,4 @@
-import { pgTable, text, uuid, integer, timestamp, index } from "drizzle-orm/pg-core";
+import { pgTable, text, uuid, integer, timestamp, index, uniqueIndex } from "drizzle-orm/pg-core";
 import { agents } from "./agents";
 
 export const ratings = pgTable(
@@ -13,7 +13,10 @@ export const ratings = pgTable(
     review: text("review"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
-  (table) => [index("ratings_agent_id_idx").on(table.agentId)]
+  (table) => [
+    index("ratings_agent_id_idx").on(table.agentId),
+    uniqueIndex("ratings_agent_user_unique").on(table.agentId, table.userWallet),
+  ]
 );
 
 export type Rating = typeof ratings.$inferSelect;

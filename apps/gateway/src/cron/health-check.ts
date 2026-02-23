@@ -1,24 +1,24 @@
 import { createDb } from "../lib/db";
 import { agents } from "@repo/db";
-import { eq, or } from "drizzle-orm";
+import { eq, or, sql } from "drizzle-orm";
 import { probeMcpEndpoint } from "../lib/mcp-health-probe";
 
 const BATCH_SIZE = 50;
+const FAILURE_THRESHOLD = 6; // 30 min at 5-min intervals before pausing
 
 /**
  * Health check cron: validates MCP endpoints via initialize handshake.
- * - Active agents: pause after 3 consecutive failures
+ * - Active agents: pause after 6 consecutive failures (30 min)
  * - Paused agents: auto-resume when health check passes
+ * - Tracks total/passed counters for uptime calculation (separate from request success)
  */
 export async function handleHealthCheck(env: { DATABASE_URL: string }) {
   const db = createDb(env.DATABASE_URL);
 
-  // Check both active and paused agents (paused ones can auto-resume)
   const checkableAgents = await db.query.agents.findMany({
     where: or(eq(agents.status, "active"), eq(agents.status, "paused")),
   });
 
-  // Process in batches to stay within cron CPU budget
   let checked = 0;
   let paused = 0;
   let resumed = 0;
@@ -45,14 +45,32 @@ type CheckResult = "ok" | "fail" | "paused" | "resumed";
 
 async function checkAgent(
   db: ReturnType<typeof createDb>,
-  agent: { id: string; mcpEndpoint: string; status: string; healthCheckFailures: number | null },
+  agent: {
+    id: string;
+    mcpEndpoint: string;
+    status: string;
+    healthCheckFailures: number | null;
+    healthCheckTotal: number | null;
+    healthCheckPassed: number | null;
+  },
 ): Promise<CheckResult> {
   const { healthy } = await probeMcpEndpoint(agent.mcpEndpoint);
 
+  // Always increment total counter for uptime tracking
+  const counterUpdate = {
+    healthCheckTotal: sql`COALESCE(${agents.healthCheckTotal}, 0) + 1`,
+  };
+
   if (healthy) {
-    // Auto-resume paused agents that pass health check
+    // Increment passed counter
+    const passedUpdate = {
+      ...counterUpdate,
+      healthCheckPassed: sql`COALESCE(${agents.healthCheckPassed}, 0) + 1`,
+    };
+
     if (agent.status === "paused") {
       await db.update(agents).set({
+        ...passedUpdate,
         status: "active",
         healthCheckFailures: 0,
       }).where(eq(agents.id, agent.id));
@@ -60,24 +78,33 @@ async function checkAgent(
       return "resumed";
     }
 
-    // Reset failure count on success
     if ((agent.healthCheckFailures ?? 0) > 0) {
-      await db.update(agents).set({ healthCheckFailures: 0 }).where(eq(agents.id, agent.id));
+      await db.update(agents).set({
+        ...passedUpdate,
+        healthCheckFailures: 0,
+      }).where(eq(agents.id, agent.id));
+    } else {
+      await db.update(agents).set(passedUpdate).where(eq(agents.id, agent.id));
     }
     return "ok";
   }
 
-  // Health check failed
+  // Health check failed — increment total but NOT passed
   const newFailures = (agent.healthCheckFailures ?? 0) + 1;
-  const updates: Partial<typeof agents.$inferInsert> = { healthCheckFailures: newFailures };
 
-  if (newFailures >= 3 && agent.status === "active") {
-    updates.status = "paused";
+  if (newFailures >= FAILURE_THRESHOLD && agent.status === "active") {
+    await db.update(agents).set({
+      ...counterUpdate,
+      healthCheckFailures: newFailures,
+      status: "paused",
+    }).where(eq(agents.id, agent.id));
     console.warn(`[health-check] agent=${agent.id} paused after ${newFailures} failures`);
-    await db.update(agents).set(updates).where(eq(agents.id, agent.id));
     return "paused";
   }
 
-  await db.update(agents).set(updates).where(eq(agents.id, agent.id));
+  await db.update(agents).set({
+    ...counterUpdate,
+    healthCheckFailures: newFailures,
+  }).where(eq(agents.id, agent.id));
   return "fail";
 }

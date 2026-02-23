@@ -6,6 +6,7 @@ import { rateLimiter } from "./middleware/rate-limiter";
 import { createPaymentMiddleware } from "./middleware/x402-gateway";
 import { handleInvoke } from "./routes/agent-invoke";
 import { handleAgentInfo } from "./routes/agent-info";
+import { handleAgentDiscovery } from "./routes/agent-discovery";
 import { createHealthRoute } from "./routes/health";
 import { getActiveAgentBySlug } from "./services/agent-lookup";
 import { handleHealthCheck } from "./cron/health-check";
@@ -66,6 +67,12 @@ app.get("/health", async (c) => {
   const db = c.get("db");
   const healthRoute = createHealthRoute(db);
   return healthRoute.fetch(new Request(c.req.url), c.env, c.executionCtx);
+});
+
+// GET /agents — marketplace discovery (programmatic consumers)
+app.get("/agents", async (c) => {
+  const db = c.get("db");
+  return handleAgentDiscovery(c, db);
 });
 
 // GET /agents/:slug — public agent info (no payment required)

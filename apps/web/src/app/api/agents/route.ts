@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
 import { createNodeClient } from "@repo/db";
 import { agents } from "@repo/db";
-import { eq } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { validateMcpEndpoint } from "@/lib/mcp-validator";
 import { generateSlug, ensureUniqueSlug } from "@/lib/slug-generator";
 import { ensureCreator } from "@/lib/actions/creator-actions";
+import { buildDiscoveryQuery } from "@/lib/agent-discovery-query";
 
 const VALID_CATEGORIES = [
   "marketing", "assistant", "coding", "trading", "social", "copywriting", "pm",
@@ -17,26 +17,36 @@ function getDb() {
   return createNodeClient(url);
 }
 
-/** GET /api/agents — list active agents (public) */
-export async function GET() {
+/** GET /api/agents — discovery with search/filter/sort/pagination (public) */
+export async function GET(request: Request) {
   try {
     const db = getDb();
-    const rows = await db
-      .select({
-        id: agents.id,
-        slug: agents.slug,
-        name: agents.name,
-        category: agents.category,
-        creatorWallet: agents.creatorWallet,
-        pricePerCall: agents.pricePerCall,
-        status: agents.status,
-      })
-      .from(agents)
-      .where(eq(agents.status, "active"));
+    const url = new URL(request.url);
+    const params = {
+      q: url.searchParams.get("q") || undefined,
+      category: url.searchParams.get("category") || undefined,
+      trustTier: url.searchParams.get("trustTier") || undefined,
+      minPrice: url.searchParams.get("minPrice") || undefined,
+      maxPrice: url.searchParams.get("maxPrice") || undefined,
+      sort: url.searchParams.get("sort") || "trustScore",
+      order: url.searchParams.get("order") || "desc",
+      limit: Math.max(1, Math.min(parseInt(url.searchParams.get("limit") || "20", 10) || 20, 100)),
+      offset: Math.max(0, parseInt(url.searchParams.get("offset") || "0", 10) || 0),
+    };
 
-    return NextResponse.json({ agents: rows });
-  } catch {
-    return NextResponse.json({ agents: [] });
+    const result = await buildDiscoveryQuery(db, params);
+
+    return NextResponse.json({
+      agents: result.agents,
+      total: result.total,
+      limit: params.limit,
+      offset: params.offset,
+    }, {
+      headers: { "Cache-Control": "public, s-maxage=30, stale-while-revalidate=60" },
+    });
+  } catch (err) {
+    console.error("[GET /api/agents]", err);
+    return NextResponse.json({ agents: [], total: 0, limit: 20, offset: 0 });
   }
 }
 

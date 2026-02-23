@@ -27,10 +27,18 @@ export const agents = pgTable(
     p95LatencyMs: integer("p95_latency_ms").default(0),
     uniqueConsumers30d: integer("unique_consumers_30d").default(0),
     healthCheckFailures: integer("health_check_failures").default(0),
+    healthCheckTotal: integer("health_check_total").default(0),
+    healthCheckPassed: integer("health_check_passed").default(0),
+    ratingCount: integer("rating_count").default(0),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
-  (table) => [index("agents_creator_id_idx").on(table.creatorId)]
+  (table) => [
+    index("agents_creator_id_idx").on(table.creatorId),
+    index("agents_status_idx").on(table.status),
+    index("agents_status_category_idx").on(table.status, table.category),
+    index("agents_trust_score_idx").on(table.trustScore),
+  ]
 );
 
 export type Agent = typeof agents.$inferSelect;

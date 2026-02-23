@@ -2,12 +2,12 @@ import { createDb } from "../lib/db";
 import { agentMetrics } from "@repo/db";
 import { sql, lt } from "drizzle-orm";
 
-const CLEANUP_THRESHOLD_MS = 48 * 60 * 60 * 1000; // 48 hours
+const CLEANUP_THRESHOLD_MS = 31 * 24 * 60 * 60 * 1000; // 31 days — must exceed 30-day trust window
 
 /**
  * Hourly metrics aggregation: rolls up per-request rows into hourly summaries.
  * Uses INSERT ... ON CONFLICT to merge rows sharing the same (agent_id, timestamp) bucket.
- * Deletes raw rows older than 48h to prevent unbounded growth.
+ * Deletes aggregated rows older than 31 days (trust-recalc uses 30-day window).
  */
 export async function handleMetricsAggregation(env: { DATABASE_URL: string }) {
   const db = createDb(env.DATABASE_URL);
