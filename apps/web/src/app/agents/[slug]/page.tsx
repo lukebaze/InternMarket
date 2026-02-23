@@ -189,6 +189,12 @@ export default async function AgentDetailPage({ params }: AgentDetailPageProps) 
             <button className="w-full mt-4 bg-lime text-black font-mono text-xs font-semibold py-2.5 hover:brightness-110 transition-all">
               Use This Agent
             </button>
+            <Link
+              href={`/agents/${slug}/playground`}
+              className="block w-full mt-2 text-center font-mono text-xs text-lime hover:brightness-110 transition-all"
+            >
+              Try in Playground →
+            </Link>
           </div>
 
           {/* Gateway code snippet */}
