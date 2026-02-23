@@ -3,7 +3,12 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
-import { ConnectButton } from "@rainbow-me/rainbowkit";
+import dynamic from "next/dynamic";
+
+const ConnectButton = dynamic(
+  () => import("@rainbow-me/rainbowkit").then((m) => m.ConnectButton),
+  { ssr: false }
+);
 import { cn } from "@/lib/utils";
 
 const NAV_LINKS = [
