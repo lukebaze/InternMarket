@@ -1,29 +1,29 @@
 import type { Context, Next } from "hono";
-import { getActiveAgent } from "../services/agent-lookup";
+import { getActiveAgentBySlug } from "../services/agent-lookup";
+import { resolvePaymentConfig } from "../lib/x402-payment-config-resolver";
 import type { GatewayDb } from "../lib/db";
 
 interface PaymentConfig {
   platformWallet: string;
   facilitatorUrl: string;
   network: string;
+  enableTestnetFallback?: boolean;
 }
 
 /**
  * x402 payment middleware: verifies X-PAYMENT header via facilitator.
  * Returns 402 with payment requirements if no valid payment proof.
- * Sets agent + consumerWallet on context when payment verified.
+ * Sets agent + consumerWallet + settlementHash on context when payment verified.
+ * Expects slug-based routing: /agents/:slug/invoke
  */
 export function createPaymentMiddleware(db: GatewayDb, config: PaymentConfig) {
   return async (c: Context, next: Next) => {
-    const agentId = c.req.param("agentId");
-    if (!agentId) return c.json({ error: "Agent ID required" }, 400);
-
-    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    if (!uuidRegex.test(agentId)) return c.json({ error: "Invalid agent ID format" }, 400);
+    const slug = c.req.param("slug");
+    if (!slug) return c.json({ error: "Agent slug required" }, 400);
 
     let agent;
     try {
-      agent = await getActiveAgent(db, agentId);
+      agent = await getActiveAgentBySlug(db, slug);
     } catch {
       return c.json({ error: "Failed to resolve agent" }, 503);
     }
@@ -34,16 +34,7 @@ export function createPaymentMiddleware(db: GatewayDb, config: PaymentConfig) {
     if (!paymentHeader) {
       return c.json({
         error: "Payment Required",
-        paymentRequirements: {
-          scheme: "x402",
-          network: config.network,
-          currency: "USDC",
-          amount: agent.pricePerCall,
-          payTo: config.platformWallet,
-          facilitator: config.facilitatorUrl,
-          agentId: agent.id,
-          agentName: agent.name,
-        },
+        paymentRequirements: resolvePaymentConfig(agent, config),
       }, 402);
     }
 
@@ -68,6 +59,7 @@ export function createPaymentMiddleware(db: GatewayDb, config: PaymentConfig) {
       c.set("agent", agent);
       c.set("paymentHeader", paymentHeader);
       c.set("consumerWallet", verified.consumerWallet ?? paymentHeader);
+      c.set("settlementHash", verified.settlementHash ?? null);
     } catch {
       return c.json({ error: "Payment verification service unavailable" }, 503);
     }
@@ -79,6 +71,7 @@ export function createPaymentMiddleware(db: GatewayDb, config: PaymentConfig) {
 interface VerifyResult {
   valid: boolean;
   consumerWallet?: string;
+  settlementHash?: string;
   error?: string;
 }
 
@@ -106,16 +99,26 @@ async function verifyPayment(
     });
 
     if (res.ok) {
-      const data = await res.json() as { valid?: boolean; from?: string; error?: string };
-      return { valid: !!data.valid, consumerWallet: data.from, error: data.error };
+      const data = await res.json() as {
+        valid?: boolean;
+        from?: string;
+        settlementHash?: string;
+        error?: string;
+      };
+      return {
+        valid: !!data.valid,
+        consumerWallet: data.from,
+        settlementHash: data.settlementHash,
+        error: data.error,
+      };
     }
 
     const errBody = await res.text().catch(() => "Unknown error");
     return { valid: false, error: `Facilitator error: ${res.status} ${errBody}` };
   } catch (err) {
-    // On testnet, accept payment if facilitator is unreachable
-    if (config.network.includes("sepolia")) {
-      console.warn("[x402] Facilitator unreachable on testnet, accepting payment as-is");
+    // Only accept without facilitator if explicitly enabled AND on testnet
+    if (config.enableTestnetFallback && config.network.includes("sepolia")) {
+      console.warn("[x402] Facilitator unreachable on testnet, accepting payment (fallback enabled)");
       return { valid: true, consumerWallet: paymentProof };
     }
     throw err;

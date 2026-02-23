@@ -1,34 +1,33 @@
 # InternMarket - Project Roadmap
 
-## Current Status: Phase 1 (Foundation) - 70% Complete
+## Current Status: MVP Complete — Post-MVP Deferred Phases Next
 
 **Last Updated:** February 23, 2026
 
-**Deployed:** Next.js frontend on Vercel, Workers gateway staging
+**Deployed:** Next.js frontend on Vercel, Hono gateway on Cloudflare Workers, 3 reference agents on CF Workers
 
 ## Phase Overview
 
 | Phase | Duration | Status | Focus | Target Date |
 |-------|----------|--------|-------|-------------|
-| **Phase 1: Foundation** | 4 weeks | 70% | Core infrastructure, auth, schema | ~Mar 10, 2026 |
-| **Phase 2: Marketplace** | 4 weeks | Planned | Discovery, search, filtering | ~Apr 7, 2026 |
-| **Phase 3: Trust System** | 3 weeks | Planned | Auto-scoring, trust UI, badges | ~Apr 28, 2026 |
-| **Phase 4: Payments** | 3 weeks | Planned | x402 integration, payouts | ~May 19, 2026 |
-| **Phase 5: Scale & Polish** | 4 weeks | Planned | Performance, security, docs | ~Jun 16, 2026 |
+| **Phase 1: Foundation** | 4 weeks | Complete | Core infrastructure, auth, schema | Feb 23, 2026 |
+| **Phase 1b: Free Skill → Paid Execution MVP** | 1 week | **Complete** | Gateway hardening, x402, agent CRUD, reference agents | Feb 23, 2026 |
+| **Phase 2: Marketplace Discovery** | 4 weeks | Planned | Discovery API, search, filtering | ~Mar 23, 2026 |
+| **Phase 3: Trust System** | 3 weeks | Planned | Auto-scoring hardening, trust UI, badges | ~Apr 13, 2026 |
+| **Phase 4: Rating System** | 2 weeks | Planned | Ratings CRUD, weighted trust integration | ~Apr 27, 2026 |
+| **Phase 5: Scale & Polish** | 4 weeks | Planned | Performance, security, public beta | ~May 25, 2026 |
 
-## Phase 1: Foundation (70% Complete)
+## Phase 1: Foundation (Complete)
 
 ### Objectives
 - [x] Monorepo structure (pnpm + Turborepo)
-- [x] Database schema with Drizzle
+- [x] Database schema with Drizzle (7 tables)
 - [x] Web3 authentication (SIWE + NextAuth)
 - [x] Wallet connection (RainbowKit + Wagmi)
 - [x] Protected routes (middleware)
 - [x] Shared TypeScript types
 - [x] Cloudflare Workers gateway scaffold
-- [ ] Initial documentation (in progress)
-- [ ] API route implementation (50%)
-- [ ] Environment validation
+- [x] Initial documentation
 
 ### Deliverables
 
@@ -37,22 +36,39 @@
 | Monorepo scaffold | Complete | pnpm workspaces, Turbo config |
 | Database (Neon) | Complete | 7 tables, indexes, relations |
 | Auth flow | Complete | SIWE + NextAuth 5 beta working |
-| Next.js frontend | In progress | Landing + dashboard layout |
-| Hono gateway | In progress | /health endpoint, bindings |
+| Next.js frontend | Complete | Landing, marketing, dashboard, agent pages |
+| Hono gateway | Complete | Proxy, x402, health, metrics, trust recalc |
 | Shared packages | Complete | @repo/types, @repo/db, @repo/tsconfig |
-| Type safety | Complete | Strict TypeScript across all workspaces |
 | .env.example | Complete | All required variables documented |
 
-### Blockers / Risks
-- **x402 facilitator not yet selected** → Impacts Phase 4
-- **Trust scoring algorithm** → Needs finalization before Phase 3
-- **Database migrations** → Need to set up drizzle-kit workflow
+---
 
-### Next Checkpoint
-- [ ] Complete API routes (`/api/agents`, `/api/transactions`, `/api/ratings`)
-- [ ] Connect database queries to endpoints
-- [ ] Deploy to staging (Vercel + Workers)
-- [ ] E2E test auth → dashboard flow
+## Phase 1b: Free Skill → Paid Execution MVP (Complete)
+
+Implemented 2026-02-23. Plan: [260223-1442-free-skill-paid-execution-model](../plans/260223-1442-free-skill-paid-execution-model/plan.md)
+
+### Delivered
+
+| Item | Status | Notes |
+|------|--------|-------|
+| JSON-RPC 2.0 parser + error envelope | Complete | `gateway/src/lib/json-rpc-parser.ts`, `error-envelope.ts` |
+| Slug-based routing | Complete | Replaced UUID routing; `agent-lookup.ts` by slug |
+| Body buffer middleware | Complete | Fixes CF Workers double-read |
+| SSE passthrough | Complete | Streaming MCP responses |
+| Payment config resolver | Complete | Dynamic per-agent pricing via `x402-payment-config-resolver.ts` |
+| USDC contract addresses | Complete | Base Mainnet + Sepolia in `x402-config.ts` |
+| Refund transaction logging | Complete | Records upstream failures |
+| DB write retry wrapper | Complete | Handles transient Neon errors |
+| Testnet fallback | Complete | Gated behind `TESTNET_ONLY=true` env var |
+| POST /api/agents | Complete | Create agent with MCP validation, auto-populate tools |
+| GET /api/agents/:slug | Complete | Single agent detail with creator info |
+| PUT /api/agents/:slug | Complete | Partial update with ownership check |
+| DELETE /api/agents/:slug | Complete | Soft delete (status = paused) |
+| Slug generator | Complete | Uniqueness check; `web/src/lib/slug-generator.ts` |
+| Creator auto-creation | Complete | First agent registration creates creator record |
+| Reference agents (3) | Complete | echo, text-summarizer, code-formatter (CF Workers) |
+| Shared MCP handler factory | Complete | `reference-agents/shared/mcp-handler.ts` |
+| Seed marketplace script | Complete | `scripts/seed-marketplace.ts` |
 
 ---
 
@@ -315,14 +331,14 @@ Manual or automated:
 ## Known Issues & Backlog
 
 ### Must Fix (P0)
-- [ ] Finalize x402 facilitator selection
+- [x] Finalize x402 facilitator selection (Base Sepolia testnet; Coinbase CDP for mainnet)
 - [ ] Set trust tier thresholds based on market data
 - [ ] Health check timeout tuning
 
 ### Should Fix (P1)
-- [ ] Add comprehensive error handling to API routes
-- [ ] Implement database connection pooling
-- [ ] Add request logging to gateway
+- [x] Add comprehensive error handling to API routes (JSON-RPC 2.0 error envelope)
+- [x] Add request logging to gateway (metrics-collector service)
+- [ ] Implement database connection pooling (Neon pg Pool exists; tune for prod)
 
 ### Nice to Have (P2)
 - [ ] Email notifications for creators

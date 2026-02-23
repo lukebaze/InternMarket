@@ -4,9 +4,10 @@ import { createDb } from "./lib/db";
 import type { GatewayDb } from "./lib/db";
 import { rateLimiter } from "./middleware/rate-limiter";
 import { createPaymentMiddleware } from "./middleware/x402-gateway";
-import { createInvokeRoute } from "./routes/agent-invoke";
-import { createInfoRoute } from "./routes/agent-info";
+import { handleInvoke } from "./routes/agent-invoke";
+import { handleAgentInfo } from "./routes/agent-info";
 import { createHealthRoute } from "./routes/health";
+import { getActiveAgentBySlug } from "./services/agent-lookup";
 import { handleHealthCheck } from "./cron/health-check";
 import { handleMetricsAggregation } from "./cron/metrics-aggregation";
 import { handleTrustRecalc } from "./cron/trust-recalc";
@@ -18,12 +19,16 @@ type Bindings = {
   ENVIRONMENT: string;
   FACILITATOR_URL: string;
   NETWORK: string;
+  ENABLE_TESTNET_FALLBACK?: string;
 };
 
 type Variables = {
   db: GatewayDb;
   agent: Agent;
   paymentHeader: string;
+  consumerWallet: string;
+  settlementHash: string | null;
+  rawBody: string | undefined;
 };
 
 const app = new Hono<{ Bindings: Bindings; Variables: Variables }>();
@@ -35,7 +40,7 @@ app.use(
     origin: ["https://interns.market", "http://localhost:3000"],
     allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowHeaders: ["Content-Type", "Authorization", "X-PAYMENT"],
-  })
+  }),
 );
 
 // Global rate limiter (per IP)
@@ -48,44 +53,73 @@ app.use("*", async (c, next) => {
   await next();
 });
 
-// Health check — wired with DB instance from context
+// Body buffer middleware for invoke routes — read body once, reuse everywhere
+app.use("/agents/:slug/invoke", async (c, next) => {
+  if (c.req.method === "POST") {
+    c.set("rawBody", await c.req.text());
+  }
+  await next();
+});
+
+// Health check
 app.get("/health", async (c) => {
   const db = c.get("db");
   const healthRoute = createHealthRoute(db);
   return healthRoute.fetch(new Request(c.req.url), c.env, c.executionCtx);
 });
 
-// GET /agents/:agentId — public agent info (no payment required)
-app.get("/agents/:agentId", async (c) => {
+// GET /agents/:slug — public agent info (no payment required)
+app.get("/agents/:slug", async (c) => {
   const db = c.get("db");
-  const infoRoute = createInfoRoute(db);
-  // Delegate to info route handler directly
-  return infoRoute.fetch(
-    new Request(c.req.url.replace(/\/agents\/[^/]+$/, "/")),
-    c.env,
-    c.executionCtx
-  );
+  return handleAgentInfo(c, db);
 });
 
-// POST /agents/:agentId/invoke — payment gated proxy to creator's MCP endpoint
-app.all("/agents/:agentId/invoke", async (c) => {
+// POST /agents/:slug/invoke — payment-gated MCP proxy
+app.post("/agents/:slug/invoke", async (c) => {
   const db = c.get("db");
   const paymentMiddleware = createPaymentMiddleware(db, {
     platformWallet: c.env.PLATFORM_WALLET,
     facilitatorUrl: c.env.FACILITATOR_URL,
     network: c.env.NETWORK,
+    enableTestnetFallback: c.env.ENABLE_TESTNET_FALLBACK === "true",
   });
 
   // Run payment middleware, then invoke handler
   let invokeResponse: Response | undefined;
   await paymentMiddleware(c, async () => {
-    const invokeRoute = createInvokeRoute(db);
-    const url = new URL(c.req.url);
-    url.pathname = "/";
-    invokeResponse = await invokeRoute.fetch(new Request(url.toString(), c.req.raw), c.env, c.executionCtx);
+    invokeResponse = await handleInvoke(c, db);
   });
 
   return invokeResponse ?? c.json({ error: "Payment required" }, 402);
+});
+
+// GET /agents/:slug/invoke — MCP SSE notification channel (no payment per spec)
+// This is the server-initiated notification stream per MCP Streamable HTTP transport.
+// No tool execution happens over GET — payment only required for POST (tools/call).
+app.get("/agents/:slug/invoke", async (c) => {
+  const db = c.get("db");
+  const slug = c.req.param("slug");
+  const agent = await getActiveAgentBySlug(db, slug);
+  if (!agent) return c.json({ error: "Agent not found or inactive" }, 404);
+
+  try {
+    const proxyResponse = await fetch(agent.mcpEndpoint, {
+      method: "GET",
+      headers: { Accept: "text/event-stream" },
+      signal: AbortSignal.timeout(30_000),
+    });
+
+    return new Response(proxyResponse.body, {
+      status: proxyResponse.status,
+      headers: {
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache",
+        Connection: "keep-alive",
+      },
+    });
+  } catch {
+    return c.json({ error: "Agent SSE endpoint unreachable" }, 502);
+  }
 });
 
 export default {
@@ -96,9 +130,8 @@ export default {
         ctx.waitUntil(handleHealthCheck(env));
         break;
       case "0 * * * *":
-        // Run aggregation first, then trust recalc (sequential within same cron)
         ctx.waitUntil(
-          handleMetricsAggregation(env).then(() => handleTrustRecalc(env))
+          handleMetricsAggregation(env).then(() => handleTrustRecalc(env)),
         );
         break;
     }

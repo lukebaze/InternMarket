@@ -6,6 +6,8 @@ interface RequestMetric {
   latencyMs: number;
   success: boolean;
   consumerWallet: string;
+  /** Tool name from JSON-RPC tools/call — for granular tracking */
+  toolName?: string | null;
 }
 
 // Record a per-request metric row in hourly buckets.
