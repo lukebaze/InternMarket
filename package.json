@@ -12,10 +12,16 @@
     "db:studio": "pnpm --filter @repo/db drizzle-kit studio"
   },
   "devDependencies": {
+    "tsx": "^4.21.0",
     "turbo": "^2"
   },
   "packageManager": "pnpm@10.25.0",
   "pnpm": {
-    "onlyBuiltDependencies": ["esbuild", "sharp", "unrs-resolver", "workerd"]
+    "onlyBuiltDependencies": [
+      "esbuild",
+      "sharp",
+      "unrs-resolver",
+      "workerd"
+    ]
   }
 }
