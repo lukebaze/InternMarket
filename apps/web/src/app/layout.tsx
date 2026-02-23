@@ -4,8 +4,23 @@ import { Header } from "@/components/layout/header";
 import { Footer } from "@/components/layout/footer";
 
 export const metadata: Metadata = {
-  title: "Interns.market",
-  description: "Agent marketplace powered by MCP and x402",
+  title: {
+    default: "Interns.market - AI Agent Marketplace",
+    template: "%s | Interns.market",
+  },
+  description: "Monetize your AI agents. Publish MCP servers, set prices, earn USDC.",
+  openGraph: {
+    title: "Interns.market",
+    description: "Stripe for AI Agents",
+    url: "https://interns.market",
+    siteName: "Interns.market",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Interns.market",
+    description: "Monetize your AI agents with x402 payments",
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

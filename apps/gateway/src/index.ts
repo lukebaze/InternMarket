@@ -7,6 +7,8 @@ import { createPaymentMiddleware } from "./middleware/x402-gateway";
 import { createInvokeRoute } from "./routes/agent-invoke";
 import { createInfoRoute } from "./routes/agent-info";
 import { createHealthRoute } from "./routes/health";
+import { handleHealthCheck } from "./cron/health-check";
+import { handleTrustRecalc } from "./cron/trust-recalc";
 import type { Agent } from "@repo/db";
 
 type Bindings = {
@@ -76,4 +78,16 @@ app.all("/agents/:agentId/invoke", async (c, next) => {
   });
 });
 
-export default app;
+export default {
+  fetch: app.fetch,
+  async scheduled(event: ScheduledEvent, env: Bindings, ctx: ExecutionContext) {
+    switch (event.cron) {
+      case "*/5 * * * *":
+        ctx.waitUntil(handleHealthCheck(env));
+        break;
+      case "0 * * * *":
+        ctx.waitUntil(handleTrustRecalc(env));
+        break;
+    }
+  },
+};

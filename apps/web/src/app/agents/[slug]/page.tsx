@@ -1,8 +1,11 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
+import { auth } from "@/lib/auth";
 import { getAgentBySlug } from "@/lib/actions/agent-actions";
+import { getAgentRatings } from "@/lib/actions/rating-actions";
 import { AgentRating } from "@/components/agents/agent-rating";
 import { AgentToolsList } from "@/components/agents/agent-tools-list";
+import { RatingForm } from "@/components/agents/rating-form";
 import { TrustBadge } from "@/components/trust/trust-badge";
 import { TrustScoreDisplay } from "@/components/trust/trust-score-display";
 import { truncateAddress, formatUSDC } from "@/lib/utils";
@@ -12,17 +15,28 @@ interface AgentDetailPageProps {
   params: Promise<{ slug: string }>;
 }
 
+function StarDisplay({ score }: { score: number }) {
+  return (
+    <span className="text-yellow-400 text-sm">
+      {"★".repeat(score)}
+      <span className="text-gray-200">{"★".repeat(5 - score)}</span>
+    </span>
+  );
+}
+
 export default async function AgentDetailPage({ params }: AgentDetailPageProps) {
   const { slug } = await params;
-  const agent = await getAgentBySlug(slug);
+  const [agent, session] = await Promise.all([getAgentBySlug(slug), auth()]);
   if (!agent) notFound();
+
+  const reviews = await getAgentRatings(agent.id);
+  const isAuthenticated = !!(session?.user as { address?: string })?.address;
 
   const tools = (agent.tools ?? []) as AgentTool[];
   const gatewayUrl = `${process.env.NEXT_PUBLIC_GATEWAY_URL ?? "https://gateway.interns.market"}/agents/${agent.slug}`;
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-      {/* Back */}
       <Link href="/agents" className="text-sm text-gray-500 hover:text-gray-900 mb-6 inline-flex items-center gap-1">
         ← Back to agents
       </Link>
@@ -74,6 +88,52 @@ export default async function AgentDetailPage({ params }: AgentDetailPageProps) 
               request via the x402 payment protocol.
             </p>
           </section>
+
+          {/* Ratings & Reviews */}
+          <section>
+            <h2 className="text-base font-semibold text-gray-900 mb-4">
+              Reviews {reviews.length > 0 && <span className="text-gray-400 font-normal">({reviews.length})</span>}
+            </h2>
+
+            {isAuthenticated && (
+              <div className="mb-6 rounded-xl border border-gray-200 bg-white p-5">
+                <p className="text-sm font-medium text-gray-900 mb-4">Leave a Review</p>
+                <RatingForm agentId={agent.id} />
+              </div>
+            )}
+
+            {!isAuthenticated && (
+              <div className="mb-4 rounded-lg bg-gray-50 border border-gray-200 p-4 text-sm text-gray-500">
+                <Link href="/api/auth/signin" className="text-gray-900 underline">
+                  Connect your wallet
+                </Link>{" "}
+                to leave a review.
+              </div>
+            )}
+
+            {reviews.length === 0 ? (
+              <p className="text-sm text-gray-400">No reviews yet. Be the first to rate this agent.</p>
+            ) : (
+              <div className="space-y-4">
+                {reviews.map((r) => (
+                  <div key={r.id} className="rounded-xl border border-gray-200 bg-white p-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <StarDisplay score={r.score} />
+                      <span className="text-xs text-gray-400 font-mono">
+                        {truncateAddress(r.userWallet)}
+                      </span>
+                    </div>
+                    {r.review && (
+                      <p className="text-sm text-gray-600 leading-relaxed">{r.review}</p>
+                    )}
+                    <p className="text-xs text-gray-300 mt-2">
+                      {new Date(r.createdAt).toLocaleDateString()}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
         </div>
 
         {/* Sidebar */}
@@ -90,11 +150,11 @@ export default async function AgentDetailPage({ params }: AgentDetailPageProps) 
               </div>
               <div className="flex justify-between">
                 <span>Uptime (30d)</span>
-                <span className="font-medium text-gray-900">{parseFloat(agent.uptime30d).toFixed(1)}%</span>
+                <span className="font-medium text-gray-900">{parseFloat(agent.uptime30d ?? "0").toFixed(1)}%</span>
               </div>
               <div className="flex justify-between">
                 <span>Success rate</span>
-                <span className="font-medium text-gray-900">{parseFloat(agent.successRate30d).toFixed(1)}%</span>
+                <span className="font-medium text-gray-900">{parseFloat(agent.successRate30d ?? "0").toFixed(1)}%</span>
               </div>
               <div className="flex justify-between">
                 <span>P95 latency</span>

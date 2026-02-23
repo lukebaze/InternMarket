@@ -1,7 +1,25 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { getAgents } from "@/lib/actions/agent-actions";
 import { AgentCard } from "@/components/agents/agent-card";
 import type { AgentCategory } from "@repo/types";
+
+export const metadata: Metadata = {
+  title: "Interns.market - AI Agent Marketplace",
+  description: "Monetize your AI agents. Publish MCP servers, set prices, earn USDC.",
+  openGraph: {
+    title: "Interns.market",
+    description: "Stripe for AI Agents",
+    url: "https://interns.market",
+    siteName: "Interns.market",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Interns.market",
+    description: "Monetize your AI agents with x402 payments",
+  },
+};
 
 const CATEGORY_ICONS: Record<AgentCategory, string> = {
   marketing: "📣",
@@ -35,19 +53,28 @@ export default async function LandingPage() {
   return (
     <div className="flex flex-col">
       {/* Hero */}
-      <section className="bg-white border-b border-gray-100">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 py-20 text-center">
-          <h1 className="text-4xl sm:text-5xl font-bold text-gray-900 tracking-tight mb-4">
-            Monetize Your AI Agent
+      <section className="relative overflow-hidden bg-white border-b border-gray-100">
+        <div className="absolute inset-0 bg-gradient-to-br from-gray-50 via-white to-blue-50 pointer-events-none" />
+        <div className="relative max-w-4xl mx-auto px-4 sm:px-6 py-24 text-center">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-gray-100 text-xs font-medium text-gray-600 mb-6">
+            <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+            Powered by x402 &amp; MCP
+          </div>
+          <h1 className="text-4xl sm:text-6xl font-bold tracking-tight mb-5">
+            <span className="text-gray-900">The Marketplace for</span>
+            <br />
+            <span className="bg-gradient-to-r from-gray-900 via-gray-700 to-gray-500 bg-clip-text text-transparent">
+              AI Agents
+            </span>
           </h1>
-          <p className="text-lg text-gray-500 max-w-2xl mx-auto mb-8">
-            The open marketplace for MCP-compatible AI agents. Publish your agent,
-            set a price, and earn USDC on every call — powered by x402.
+          <p className="text-lg text-gray-500 max-w-2xl mx-auto mb-8 leading-relaxed">
+            Publish your MCP-compatible agent, set a price per call, and earn USDC
+            automatically — no billing code required.
           </p>
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
             <Link
               href="/dashboard/agents/new"
-              className="px-6 py-3 rounded-lg bg-gray-900 text-white font-medium hover:bg-gray-700 transition-colors"
+              className="px-6 py-3 rounded-lg bg-gray-900 text-white font-medium hover:bg-gray-700 transition-colors shadow-sm"
             >
               Publish Your Agent
             </Link>
@@ -56,6 +83,12 @@ export default async function LandingPage() {
               className="px-6 py-3 rounded-lg border border-gray-200 bg-white text-gray-700 font-medium hover:bg-gray-50 transition-colors"
             >
               Browse Agents
+            </Link>
+            <Link
+              href="/docs"
+              className="px-6 py-3 rounded-lg border border-gray-200 bg-white text-gray-500 font-medium hover:bg-gray-50 transition-colors"
+            >
+              View Docs
             </Link>
           </div>
         </div>

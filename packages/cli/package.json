@@ -1,0 +1,23 @@
+{
+  "name": "interns-cli",
+  "version": "0.1.0",
+  "description": "CLI to publish and manage AI agents on interns.market",
+  "bin": { "interns": "./dist/index.js" },
+  "main": "./dist/index.js",
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsup src/index.ts --format esm --dts --clean",
+    "dev": "tsup src/index.ts --format esm --watch",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "commander": "^12",
+    "ora": "^8",
+    "chalk": "^5"
+  },
+  "devDependencies": {
+    "tsup": "^8",
+    "typescript": "^5",
+    "@repo/tsconfig": "workspace:*"
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "extends": "../../packages/tsconfig/node.json",
+  "compilerOptions": {
+    "outDir": "dist",
+    "rootDir": "src",
+    "incremental": false,
+    "composite": false,
+    "declarationMap": false,
+    "tsBuildInfoFile": null
+  },
+  "include": ["src/**/*.ts"]
+}
