@@ -186,44 +186,71 @@ sortOrder, createdAt
 
 ## API Surface Area
 
-### Web Frontend Routes
+### Web Frontend Routes (Next.js)
 - `GET /` - Landing page
-- `GET /api/nonce` - Challenge for SIWE signing
-- `POST /api/auth/[...nextauth]` - NextAuth endpoints
-- `GET /dashboard` - Protected creator dashboard (middleware)
+- `GET /api/nonce` - Challenge for SIWE signing (returns nonce for SiweMessage)
+- `POST /api/auth/[...nextauth]` - NextAuth endpoints (SIWE callback + session)
+- `GET /dashboard` - Protected creator dashboard (auth required)
+- `GET /api/agents` - List agents with pagination & filters
+- `GET /api/agents/:slug` - Agent details (metadata + creator info)
+- `POST /api/agents` - Register new agent (auth required, MCP validation)
+- `PUT /api/agents/:slug` - Update agent (auth required, ownership verified)
+- `DELETE /api/agents/:slug` - Soft delete agent (status → paused)
+- `GET /api/agents/:slug/showcase` - Agent demo examples
+- `POST /api/agents/:slug/ratings` - Submit rating (auth required)
+- `GET /creators/:wallet` - Public creator profile
 
-### Gateway Routes (Cloudflare Workers)
-- `GET /health` - Service health check
+### Gateway Routes (Cloudflare Workers / Hono)
+- `GET /health` - Service health check (version, timestamp)
+- `POST /agents/:slug/invoke` - Call MCP agent (x402 payment required)
+- `GET /agents/:slug` - Agent detail (from gateway cache)
+- `GET /agents` - List agents (from DB)
+- `GET /agents/:slug/info` - Full agent info including MCP tools
 
-### Planned API Endpoints (Phase 2+)
-- `GET /agents` - List all agents with filters
-- `GET /agents/:slug` - Agent details
-- `POST /agents` - Register new agent
-- `PUT /agents/:slug` - Update agent
-- `GET /creators/:wallet` - Creator profile
-- `POST /transactions` - Record transaction
-- `POST /ratings` - Submit rating
-- `GET /agents/:slug/metrics` - Performance metrics
+### Internal Cron Jobs (Phase 1b+)
+- Health check service (every 5 min) - Validates agent endpoints
+- Metrics aggregation (hourly) - Calculates rolling 30-day stats
+- Trust recalculation (hourly) - Updates trustScore and trustTier
+
+## Phase 1b: Free Skill → Paid Execution MVP (Delivered)
+
+Completed Feb 23, 2026. Gateway hardened with JSON-RPC 2.0 envelope, x402 integration, and full agent CRUD API.
+
+### Key Deliverables
+- **JSON-RPC 2.0 parser** — Handles RPC calls with standardized error envelope
+- **Slug-based routing** — Human-readable agent URLs, replaced UUID
+- **Body buffer middleware** — Fixes Cloudflare Workers double-read issue
+- **SSE passthrough** — Streams MCP responses (Server-Sent Events)
+- **x402 payment resolver** — Dynamic per-agent pricing config
+- **USDC support** — Base Mainnet + Sepolia contract addresses
+- **Refund logging** — Records upstream failures & transaction retries
+- **Agent CRUD API** — POST/GET/PUT/DELETE endpoints with validation
+- **Reference agents** — 3 CF Workers (echo, text-summarizer, code-formatter)
+- **Creator auto-creation** — First agent registration creates creator record
 
 ## Future Considerations
 
-### Phase 2: Marketplace Features
+### Phase 2: Marketplace Discovery (4 weeks)
 - Advanced agent discovery (filters, sorting, full-text search)
 - Creator reputation badges
 - Featured agent listings
 - Agent analytics dashboard
 
-### Phase 3: Ecosystem Expansion
+### Phase 3: Trust System Hardening (3 weeks)
+- Auto-scoring pipeline refinement
+- Health check reliability improvements
+- Trust UI badges and certification
+
+### Phase 4: Ecosystem Expansion (3+ weeks)
 - Multi-chain support (Polygon, Arbitrum, Optimism)
 - DAO governance for platform decisions
 - Creator revenue sharing (referral system)
-- Custom agent categories
+- Rating system integration
 
-### Phase 4: AI Infrastructure
-- Agent routing optimization
-- Batch request processing
-- Request queuing and priority
-- Cost prediction and optimization
+### Phase 5: Scale & Security (4 weeks)
+- Performance optimization (caching, indexing)
+- Security audit and hardening
+- Public beta launch
 
 ### Breaking Changes & Deprecation
 - MCP protocol version updates will require agent revalidation

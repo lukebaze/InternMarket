@@ -307,6 +307,68 @@ FOR EACH agent with status='active'
 END
 ```
 
+## Reference Agents Architecture (Phase 1b)
+
+Three reference agents deployed as Cloudflare Workers to bootstrap marketplace:
+
+```
+apps/reference-agents/
+├── echo/                    # Echo MCP (mirrors input)
+│   ├── src/index.ts        # Hono + MCP handler
+│   ├── wrangler.toml       # CF Workers config
+│   └── SKILLS.md           # ClawHub metadata
+├── text-summarizer/         # Summarization MCP
+│   └── Similar structure
+├── code-formatter/          # Code formatting MCP
+│   └── Similar structure
+└── shared/
+    └── mcp-handler.ts      # Factory function for MCP responses
+```
+
+### MCP Handler Factory Pattern
+```typescript
+// shared/mcp-handler.ts
+export function createMcpHandler() {
+  return async (request: Request) => {
+    const body = await request.json();
+
+    // Validate JSON-RPC 2.0
+    if (body.jsonrpc !== '2.0') {
+      return jsonRpcError(-32600, 'Invalid Request');
+    }
+
+    // Route method calls
+    if (body.method === 'initialize') {
+      return jsonRpcResult(body.id, { capabilities: { ... } });
+    }
+
+    // Process tool calls
+    return jsonRpcResult(body.id, { result: execute(body.params) });
+  };
+}
+```
+
+### ClawHub Distribution (SKILLS.md)
+Each reference agent includes SKILLS.md describing capabilities:
+```markdown
+# Echo MCP
+
+Simple echo/mirror agent. Returns input unchanged.
+
+## Capabilities
+- **Method:** tools/echo
+- **Input:** `{ message: string }`
+- **Output:** `{ echoed: string, timestamp: ISO8601 }`
+```
+
+### Seed Marketplace Script
+`scripts/seed-marketplace.ts` auto-registers reference agents:
+```bash
+pnpm seed-marketplace
+# Creates creators + agents from reference agents
+# Populates USDC pricing on Base/Sepolia
+```
+
 ## Deployment Topology
 
 ### Development
@@ -314,6 +376,7 @@ END
 Local Workstation
 ├─ pnpm dev (Next.js on :3000)
 ├─ wrangler dev (Workers on :8787)
+├─ wrangler dev (Reference agents on :8788+)
 ├─ PostgreSQL (local or neon)
 └─ .env.local (secrets)
 ```

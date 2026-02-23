@@ -370,11 +370,11 @@ MIT
 
 ## Roadmap
 
-**Phase 1 (Current):** Foundation - Auth, DB, basic marketplace (70% complete)
+**MVP Complete:** Phase 1 + Phase 1b (Web3 auth, 7-table schema, agent CRUD, x402 ready)
 **Phase 2:** Marketplace - Search, filtering, discovery
 **Phase 3:** Trust System - Auto-scoring, trust badges
-**Phase 4:** Payments - x402 integration, payouts
-**Phase 5:** Scale - Performance, security, launch
+**Phase 4:** Rating System - Ratings CRUD, trust integration
+**Phase 5:** Scale - Performance, security, public beta launch
 
 See `docs/project-roadmap.md` for detailed timeline and milestones.
 

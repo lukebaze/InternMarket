@@ -1,10 +1,12 @@
 # InternMarket - Project Roadmap
 
-## Current Status: MVP Complete — Post-MVP Deferred Phases Next
+## Current Status: MVP Complete (Phase 1 + Phase 1b)
 
 **Last Updated:** February 23, 2026
 
-**Deployed:** Next.js frontend on Vercel, Hono gateway on Cloudflare Workers, 3 reference agents on CF Workers
+**MVP Definition:** Phase 1 (Foundation) + Phase 1b (Free Skill → Paid Execution) = Full agent marketplace with Web3 auth, CRUD endpoints, and x402 payment infrastructure
+
+**Deployed:** Next.js frontend on Vercel, Hono gateway on Cloudflare Workers, 3 reference agents on CF Workers, 7-table PostgreSQL schema on Neon
 
 ## Phase Overview
 

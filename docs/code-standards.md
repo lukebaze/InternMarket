@@ -95,49 +95,167 @@ export function ConnectButton() {
 }
 ```
 
-### API Routes
+### API Routes (Next.js App Router)
 ```typescript
 // apps/web/src/app/api/[endpoint]/route.ts
 export async function GET(request: Request) {
   try {
     // Validation
     const url = new URL(request.url);
-    // Business logic
-    return Response.json({ status: 'ok' });
+    const id = url.searchParams.get('id');
+
+    if (!id) {
+      return Response.json({ error: 'Missing id' }, { status: 400 });
+    }
+
+    // Business logic (prefer delegating to services)
+    const result = await fetchData(id);
+    return Response.json({ status: 'ok', data: result });
   } catch (error) {
-    console.error('Route error:', error);
+    console.error('[GET] Route error:', error);
     return Response.json({ error: 'Internal error' }, { status: 500 });
   }
 }
 
 export async function POST(request: Request) {
-  // Similar pattern
+  try {
+    const body = await request.json();
+
+    // Validation
+    if (!body.name) {
+      return Response.json({ error: 'Missing name' }, { status: 400 });
+    }
+
+    // Process
+    const result = await createRecord(body);
+    return Response.json({ status: 'ok', id: result.id }, { status: 201 });
+  } catch (error) {
+    console.error('[POST] Route error:', error);
+    return Response.json({ error: 'Internal error' }, { status: 500 });
+  }
 }
 ```
+
+### Server Actions Pattern (Recommended for mutations)
+```typescript
+// apps/web/src/app/actions/agent-actions.ts
+'use server';
+
+import { db } from '@repo/db';
+import { agents } from '@repo/db/schema';
+import { revalidatePath } from 'next/cache';
+
+/**
+ * Server action to create an agent.
+ * Called from client components with use case specific params.
+ */
+export async function createAgentAction(formData: FormData) {
+  try {
+    const name = formData.get('name') as string;
+    const slug = formData.get('slug') as string;
+    const creatorId = formData.get('creatorId') as string;
+
+    // Validate
+    if (!name || !slug) {
+      throw new Error('Name and slug required');
+    }
+
+    // Create in DB
+    const result = await db
+      .insert(agents)
+      .values({ name, slug, creatorId })
+      .returning();
+
+    // Revalidate cache
+    revalidatePath('/agents');
+    revalidatePath(`/agents/${slug}`);
+
+    return { ok: true, agent: result[0] };
+  } catch (error) {
+    console.error('[createAgentAction]', error);
+    throw error;
+  }
+}
+```
+
+**When to use Server Actions:**
+- Form submissions (simpler than POST endpoints)
+- Mutations that modify DB state
+- Private operations that shouldn't expose DB logic
+- Cache revalidation needed
+
+**When to use API Routes:**
+- Public APIs (CORS, versioning)
+- Third-party integrations (webhooks)
+- Complex middleware pipelines
+- Stream responses (SSE)
 
 ## Hono Conventions (apps/gateway)
 
 ### Middleware Stack
 ```typescript
 app.use('*', cors());  // CORS first
-app.use('*', logger());  // Then logging (future)
+app.use('*', logger());  // Then logging
+app.use('*', bodyBuffering());  // Buffer body (CF Workers double-read fix)
 app.use('/api/*', authenticate());  // Then auth (future)
 ```
 
-### Route Handlers
+### Route Handlers with Error Envelope
 ```typescript
+// Standard JSON-RPC 2.0 response (success)
 app.get('/health', (c) => {
   return c.json({
-    status: 'ok',
-    timestamp: new Date().toISOString(),
-    version: 'v1'
+    jsonrpc: '2.0',
+    result: {
+      status: 'ok',
+      timestamp: new Date().toISOString(),
+      version: 'v1'
+    },
+    id: null
   });
 });
 
-app.post('/agents', async (c) => {
-  const body = await c.req.json();
-  // Validation & logic
-  return c.json({ id: '...' }, 201);
+// JSON-RPC error envelope
+app.post('/agents/:slug/invoke', async (c) => {
+  try {
+    const body = await c.req.json();
+    // Validation & MCP invocation
+    return c.json({
+      jsonrpc: '2.0',
+      result: { agentResponse: '...' },
+      id: body.id
+    }, 200);
+  } catch (error) {
+    return c.json({
+      jsonrpc: '2.0',
+      error: {
+        code: -32603,
+        message: 'Internal error',
+        data: { details: String(error) }
+      },
+      id: null
+    }, 500);
+  }
+});
+```
+
+### x402 Payment Config Pattern
+```typescript
+// Route handler
+app.post('/agents/:slug/invoke', async (c) => {
+  const slug = c.req.param('slug');
+  const paymentConfig = await resolveX402PaymentConfig(slug);
+
+  // Validate x402 headers
+  const x402Header = c.req.header('x402-payment');
+  if (!x402Header) {
+    return errorEnvelope(c, -32001, 'Payment required', 402);
+  }
+
+  // Process payment via config
+  const txResult = await processPayment(paymentConfig, x402Header);
+
+  return c.json({ jsonrpc: '2.0', result: txResult, id: null });
 });
 ```
 

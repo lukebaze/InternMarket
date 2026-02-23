@@ -6,7 +6,7 @@
 
 **Type:** AI Agent Marketplace Platform (Web3 + MCP)
 
-**Status:** Phase 1 (Foundation) - 70% complete
+**Status:** Phase 1 + Phase 1b Complete (Free Skill → Paid Execution MVP Delivered)
 
 **Owner:** Project Team
 
@@ -121,11 +121,12 @@ InternMarket is a blockchain-based marketplace that:
 
 | Phase | Duration | Status | Deliverables |
 |---|---|---|---|
-| Phase 1: Foundation | 4 weeks | 70% | Auth, DB, basic marketplace |
-| Phase 2: Marketplace | 4 weeks | Planned | Discovery UX, analytics |
-| Phase 3: Trust System | 3 weeks | Planned | Auto-scoring, trust UI |
-| Phase 4: Payments | 3 weeks | Planned | x402 integration, creator payouts |
-| Phase 5: Scale | Ongoing | Planned | Performance, security hardening |
+| Phase 1: Foundation | 4 weeks | Complete | Auth, DB, schema, marketplace scaffold |
+| Phase 1b: Free Skill → Paid | 1 week | Complete | Gateway hardening, x402, agent CRUD, reference agents |
+| Phase 2: Marketplace Discovery | 4 weeks | Planned | Discovery API, search, filtering, analytics |
+| Phase 3: Trust System | 3 weeks | Planned | Auto-scoring hardening, trust UI, badges |
+| Phase 4: Rating System | 2 weeks | Planned | Ratings CRUD, weighted trust integration |
+| Phase 5: Scale & Security | 4 weeks | Planned | Performance, audit, public beta launch |
 
 ## Dependencies
 
