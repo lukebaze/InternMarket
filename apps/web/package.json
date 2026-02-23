@@ -1,0 +1,39 @@
+{
+  "name": "@repo/web",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@auth/core": "^0.34.3",
+    "@rainbow-me/rainbowkit": "^2.2.10",
+    "@repo/db": "workspace:*",
+    "@repo/types": "workspace:*",
+    "@tanstack/react-query": "^5.90.21",
+    "clsx": "^2.1.1",
+    "drizzle-orm": "^0.45.1",
+    "next": "15.1.7",
+    "next-auth": "5.0.0-beta.30",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "siwe": "^3.0.0",
+    "tailwind-merge": "^3.5.0",
+    "viem": "^2.46.2",
+    "wagmi": "^2.19.5"
+  },
+  "devDependencies": {
+    "@repo/tsconfig": "workspace:*",
+    "@types/node": "^22",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "15.1.7",
+    "tailwindcss": "^4",
+    "typescript": "^5"
+  }
+}
