@@ -35,7 +35,7 @@ export function RatingForm({ agentId, onSuccess }: RatingFormProps) {
 
   if (success) {
     return (
-      <div className="rounded-lg bg-green-50 border border-green-200 p-4 text-sm text-green-700">
+      <div className="bg-lime/10 border border-lime/30 p-4 font-mono text-sm text-lime">
         Thanks for your review! Your rating has been submitted.
       </div>
     );
@@ -43,9 +43,8 @@ export function RatingForm({ agentId, onSuccess }: RatingFormProps) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      {/* Star picker */}
       <div>
-        <p className="text-xs font-medium text-gray-700 mb-2">Your rating</p>
+        <p className="font-mono text-xs font-medium text-text-secondary mb-2">Your rating</p>
         <div className="flex gap-1">
           {[1, 2, 3, 4, 5].map((star) => (
             <button
@@ -57,7 +56,7 @@ export function RatingForm({ agentId, onSuccess }: RatingFormProps) {
               className="text-2xl transition-transform hover:scale-110 focus:outline-none"
               aria-label={`Rate ${star} star${star !== 1 ? "s" : ""}`}
             >
-              <span className={(hovered || score) >= star ? "text-yellow-400" : "text-gray-200"}>
+              <span className={(hovered || score) >= star ? "text-lime" : "text-text-muted"}>
                 ★
               </span>
             </button>
@@ -65,10 +64,9 @@ export function RatingForm({ agentId, onSuccess }: RatingFormProps) {
         </div>
       </div>
 
-      {/* Review textarea */}
       <div>
-        <label className="text-xs font-medium text-gray-700 mb-1 block" htmlFor="review-text">
-          Review <span className="text-gray-400 font-normal">(optional)</span>
+        <label className="font-mono text-xs font-medium text-text-secondary mb-1 block" htmlFor="review-text">
+          Review <span className="text-text-muted font-normal">(optional)</span>
         </label>
         <textarea
           id="review-text"
@@ -77,16 +75,16 @@ export function RatingForm({ agentId, onSuccess }: RatingFormProps) {
           rows={3}
           maxLength={500}
           placeholder="Share your experience with this agent..."
-          className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-gray-400 focus:outline-none resize-none"
+          className="w-full bg-bg-surface border border-bg-border px-3 py-2 font-mono text-sm text-text-primary placeholder:text-text-muted focus:border-text-muted focus:outline-none resize-none"
         />
       </div>
 
-      {error && <p className="text-xs text-red-600">{error}</p>}
+      {error && <p className="font-mono text-xs text-red-error">{error}</p>}
 
       <button
         type="submit"
         disabled={isPending || score === 0}
-        className="px-4 py-2 rounded-lg bg-gray-900 text-white text-sm font-medium hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        className="px-4 py-2 bg-lime text-black font-mono text-sm font-semibold hover:brightness-110 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
       >
         {isPending ? "Submitting..." : "Submit Review"}
       </button>

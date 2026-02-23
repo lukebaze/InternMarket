@@ -1,25 +1,44 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Link from "next/link";
+import { ArrowLeft } from "lucide-react";
 import { auth } from "@/lib/auth";
 import { getAgentBySlug } from "@/lib/actions/agent-actions";
 import { getAgentRatings } from "@/lib/actions/rating-actions";
 import { AgentRating } from "@/components/agents/agent-rating";
 import { AgentToolsList } from "@/components/agents/agent-tools-list";
 import { RatingForm } from "@/components/agents/rating-form";
+import { VerifiedBadge } from "@/components/agents/verified-badge";
 import { TrustBadge } from "@/components/trust/trust-badge";
 import { TrustScoreDisplay } from "@/components/trust/trust-score-display";
 import { truncateAddress, formatUSDC } from "@/lib/utils";
+import { buildAgentOgMetadata } from "@/lib/og-metadata";
 import type { AgentTool, TrustTier } from "@repo/types";
 
 interface AgentDetailPageProps {
   params: Promise<{ slug: string }>;
 }
 
+export async function generateMetadata({ params }: AgentDetailPageProps): Promise<Metadata> {
+  const { slug } = await params;
+  const agent = await getAgentBySlug(slug);
+  if (!agent) return { title: "Agent Not Found" };
+  return buildAgentOgMetadata({
+    name: agent.name,
+    slug: agent.slug,
+    description: agent.description,
+    category: agent.category,
+    trustTier: agent.trustTier,
+    trustScore: agent.trustScore,
+    pricePerCall: agent.pricePerCall,
+  });
+}
+
 function StarDisplay({ score }: { score: number }) {
   return (
-    <span className="text-yellow-400 text-sm">
+    <span className="text-lime text-sm">
       {"★".repeat(score)}
-      <span className="text-gray-200">{"★".repeat(5 - score)}</span>
+      <span className="text-text-muted">{"★".repeat(5 - score)}</span>
     </span>
   );
 }
@@ -36,75 +55,89 @@ export default async function AgentDetailPage({ params }: AgentDetailPageProps) 
   const gatewayUrl = `${process.env.NEXT_PUBLIC_GATEWAY_URL ?? "https://gateway.interns.market"}/agents/${agent.slug}`;
 
   return (
-    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-      <Link href="/agents" className="text-sm text-gray-500 hover:text-gray-900 mb-6 inline-flex items-center gap-1">
-        ← Back to agents
+    <div className="px-12 py-8">
+      {/* Back link */}
+      <Link href="/agents" className="inline-flex items-center gap-2 font-mono text-xs text-text-muted hover:text-text-secondary mb-5">
+        <ArrowLeft className="w-3.5 h-3.5" />
+        Back to Catalog
       </Link>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mt-4">
-        {/* Main content */}
-        <div className="lg:col-span-2 space-y-8">
-          {/* Header */}
-          <div>
-            <div className="flex flex-wrap items-center gap-2 mb-2">
-              <span className="inline-flex px-2.5 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-700 capitalize">
-                {agent.category}
-              </span>
-              <TrustBadge tier={agent.trustTier as TrustTier} />
-            </div>
-            <h1 className="text-2xl font-bold text-gray-900 mb-2">{agent.name}</h1>
-            <div className="flex items-center gap-4">
-              <AgentRating rating={agent.ratingAvg} totalCalls={agent.totalCalls} />
-              <TrustScoreDisplay score={agent.trustScore} tier={agent.trustTier as TrustTier} />
-            </div>
-          </div>
+      {/* Hero header */}
+      <div className="border-b border-bg-border pb-6 mb-8">
+        <div className="flex flex-wrap items-center gap-2 mb-2">
+          <span className="inline-flex px-2 py-1 bg-bg-border font-mono text-[9px] font-medium text-text-secondary capitalize">
+            {agent.category}
+          </span>
+          <TrustBadge tier={agent.trustTier as TrustTier} />
+          <VerifiedBadge totalCalls={agent.totalCalls} status={agent.status} trustTier={agent.trustTier} />
+        </div>
+        <h1 className="font-ui text-2xl font-bold text-text-primary mb-2">{agent.name}</h1>
+        <div className="flex items-center gap-4">
+          <AgentRating rating={agent.ratingAvg} totalCalls={agent.totalCalls} />
+          <TrustScoreDisplay score={agent.trustScore} tier={agent.trustTier as TrustTier} />
+        </div>
+      </div>
 
+      <div className="flex gap-8">
+        {/* Main content */}
+        <div className="flex-1 space-y-8">
           {/* Description */}
           <section>
-            <h2 className="text-base font-semibold text-gray-900 mb-2">Description</h2>
-            <p className="text-sm text-gray-600 leading-relaxed">{agent.description}</p>
+            <h2 className="font-ui text-sm font-semibold text-text-secondary mb-2">Description</h2>
+            <p className="font-mono text-sm text-text-tertiary leading-[1.6]">{agent.description}</p>
           </section>
 
           {/* Tools */}
           {tools.length > 0 && (
             <section>
-              <h2 className="text-base font-semibold text-gray-900 mb-3">
-                Available Tools ({tools.length})
+              <h2 className="font-ui text-sm font-semibold text-text-secondary mb-3">
+                MCP Tools ({tools.length})
               </h2>
               <AgentToolsList tools={tools} />
             </section>
           )}
 
-          {/* Gateway usage */}
+          {/* Performance metrics — prominent display */}
           <section>
-            <h2 className="text-base font-semibold text-gray-900 mb-3">Use This Agent</h2>
-            <div className="rounded-lg bg-gray-950 p-4">
-              <p className="text-xs text-gray-400 mb-2">MCP Gateway endpoint</p>
-              <code className="text-xs text-green-400 break-all">{gatewayUrl}</code>
+            <h2 className="font-ui text-sm font-semibold text-text-secondary mb-3">Performance (30d)</h2>
+            <div className="flex gap-4">
+              <div className="flex-1 bg-bg-surface border border-bg-border p-4">
+                <p className="font-mono text-[10px] text-text-muted mb-1">Uptime</p>
+                <p className="font-ui text-2xl font-semibold text-lime">
+                  {parseFloat(agent.uptime30d ?? "0").toFixed(1)}%
+                </p>
+              </div>
+              <div className="flex-1 bg-bg-surface border border-bg-border p-4">
+                <p className="font-mono text-[10px] text-text-muted mb-1">P95 Latency</p>
+                <p className="font-ui text-2xl font-semibold text-text-primary">
+                  {agent.p95LatencyMs}ms
+                </p>
+              </div>
+              <div className="flex-1 bg-bg-surface border border-bg-border p-4">
+                <p className="font-mono text-[10px] text-text-muted mb-1">Success Rate</p>
+                <p className="font-ui text-2xl font-semibold text-lime">
+                  {parseFloat(agent.successRate30d ?? "0").toFixed(1)}%
+                </p>
+              </div>
             </div>
-            <p className="text-xs text-gray-400 mt-2">
-              Calls are billed at{" "}
-              <strong className="text-gray-600">{formatUSDC(agent.pricePerCall)} USDC</strong> per
-              request via the x402 payment protocol.
-            </p>
           </section>
 
-          {/* Ratings & Reviews */}
+          {/* Reviews */}
           <section>
-            <h2 className="text-base font-semibold text-gray-900 mb-4">
-              Reviews {reviews.length > 0 && <span className="text-gray-400 font-normal">({reviews.length})</span>}
+            <h2 className="font-ui text-sm font-semibold text-text-secondary mb-4">
+              Reviews {reviews.length > 0 && <span className="text-text-muted font-normal">({reviews.length})</span>}
             </h2>
 
             {isAuthenticated && (
-              <div className="mb-6 rounded-xl border border-gray-200 bg-white p-5">
-                <p className="text-sm font-medium text-gray-900 mb-4">Leave a Review</p>
+              <div className="mb-6 border border-bg-border bg-bg-surface p-5">
+                <p className="font-mono text-sm font-medium text-text-primary mb-4">Leave a Review</p>
                 <RatingForm agentId={agent.id} />
               </div>
             )}
 
             {!isAuthenticated && (
-              <div className="mb-4 rounded-lg bg-gray-50 border border-gray-200 p-4 text-sm text-gray-500">
-                <Link href="/api/auth/signin" className="text-gray-900 underline">
+              <div className="mb-4 bg-bg-surface border border-bg-border p-4 font-mono text-sm text-text-tertiary">
+                <Link href="/api/auth/signin" className="text-lime underline">
                   Connect your wallet
                 </Link>{" "}
                 to leave a review.
@@ -112,21 +145,21 @@ export default async function AgentDetailPage({ params }: AgentDetailPageProps) 
             )}
 
             {reviews.length === 0 ? (
-              <p className="text-sm text-gray-400">No reviews yet. Be the first to rate this agent.</p>
+              <p className="font-mono text-sm text-text-muted">No reviews yet. Be the first to rate this agent.</p>
             ) : (
-              <div className="space-y-4">
+              <div className="space-y-3">
                 {reviews.map((r) => (
-                  <div key={r.id} className="rounded-xl border border-gray-200 bg-white p-4">
+                  <div key={r.id} className="border border-bg-border bg-bg-surface p-4">
                     <div className="flex items-center justify-between mb-2">
                       <StarDisplay score={r.score} />
-                      <span className="text-xs text-gray-400 font-mono">
+                      <span className="font-mono text-[10px] text-text-muted">
                         {truncateAddress(r.userWallet)}
                       </span>
                     </div>
                     {r.review && (
-                      <p className="text-sm text-gray-600 leading-relaxed">{r.review}</p>
+                      <p className="font-mono text-sm text-text-tertiary leading-relaxed">{r.review}</p>
                     )}
-                    <p className="text-xs text-gray-300 mt-2">
+                    <p className="font-mono text-[10px] text-text-muted mt-2">
                       {new Date(r.createdAt).toLocaleDateString()}
                     </p>
                   </div>
@@ -136,42 +169,48 @@ export default async function AgentDetailPage({ params }: AgentDetailPageProps) 
           </section>
         </div>
 
-        {/* Sidebar */}
-        <div className="space-y-4">
+        {/* Sidebar (360px) */}
+        <div className="w-[360px] shrink-0 space-y-4">
           {/* Pricing card */}
-          <div className="rounded-xl border border-gray-200 bg-white p-5">
-            <p className="text-xs text-gray-500 mb-1">Price per call</p>
-            <p className="text-3xl font-bold text-gray-900">{formatUSDC(agent.pricePerCall)}</p>
-            <p className="text-xs text-gray-400">USDC</p>
-            <div className="mt-4 pt-4 border-t border-gray-100 space-y-2 text-xs text-gray-500">
+          <div className="bg-bg-surface border border-bg-border p-5">
+            <p className="font-mono text-xs text-text-muted mb-1">Price per call</p>
+            <p className="font-ui text-3xl font-bold text-lime">{formatUSDC(agent.pricePerCall)}</p>
+            <p className="font-mono text-[10px] text-text-muted">USDC</p>
+            <div className="mt-4 pt-4 border-t border-bg-border space-y-2 font-mono text-xs">
               <div className="flex justify-between">
-                <span>Total calls</span>
-                <span className="font-medium text-gray-900">{agent.totalCalls.toLocaleString()}</span>
+                <span className="text-text-tertiary">Total calls</span>
+                <span className="font-medium text-text-primary">{agent.totalCalls.toLocaleString()}</span>
               </div>
               <div className="flex justify-between">
-                <span>Uptime (30d)</span>
-                <span className="font-medium text-gray-900">{parseFloat(agent.uptime30d ?? "0").toFixed(1)}%</span>
-              </div>
-              <div className="flex justify-between">
-                <span>Success rate</span>
-                <span className="font-medium text-gray-900">{parseFloat(agent.successRate30d ?? "0").toFixed(1)}%</span>
-              </div>
-              <div className="flex justify-between">
-                <span>P95 latency</span>
-                <span className="font-medium text-gray-900">{agent.p95LatencyMs}ms</span>
+                <span className="text-text-tertiary">Unique consumers</span>
+                <span className="font-medium text-text-primary">{(agent.uniqueConsumers30d ?? 0).toLocaleString()}</span>
               </div>
             </div>
+            <button className="w-full mt-4 bg-lime text-black font-mono text-xs font-semibold py-2.5 hover:brightness-110 transition-all">
+              Use This Agent
+            </button>
+          </div>
+
+          {/* Gateway code snippet */}
+          <div className="bg-bg-surface border border-bg-border p-4">
+            <p className="font-mono text-[10px] text-text-muted mb-2">MCP Gateway endpoint</p>
+            <code className="font-mono text-xs text-lime break-all">{gatewayUrl}</code>
+            <p className="font-mono text-[10px] text-text-muted mt-2">
+              Calls billed at <strong className="text-text-secondary">{formatUSDC(agent.pricePerCall)} USDC</strong> per request via x402.
+            </p>
           </div>
 
           {/* Creator card */}
-          <div className="rounded-xl border border-gray-200 bg-white p-5">
-            <p className="text-xs text-gray-500 mb-2">Creator</p>
-            <p className="text-sm font-medium text-gray-900">
-              {agent.creator?.displayName ?? truncateAddress(agent.creatorWallet)}
-            </p>
-            <p className="text-xs text-gray-400 font-mono mt-0.5">
-              {truncateAddress(agent.creatorWallet)}
-            </p>
+          <div className="bg-bg-surface border border-bg-border p-5">
+            <p className="font-mono text-[10px] text-text-muted mb-2">Creator</p>
+            <Link href={`/creators/${agent.creatorWallet}`} className="group">
+              <p className="font-mono text-sm font-medium text-text-primary group-hover:text-lime transition-colors">
+                {agent.creator?.displayName ?? truncateAddress(agent.creatorWallet)}
+              </p>
+              <p className="font-mono text-[10px] text-text-muted mt-0.5">
+                {truncateAddress(agent.creatorWallet)}
+              </p>
+            </Link>
           </div>
         </div>
       </div>

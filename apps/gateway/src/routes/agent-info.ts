@@ -7,7 +7,7 @@ export function createInfoRoute(db: GatewayDb) {
   const route = new Hono();
 
   route.get("/", async (c) => {
-    const agentId = c.req.param("agentId");
+    const agentId = c.req.param("agentId") ?? "";
 
     let agent;
     try {

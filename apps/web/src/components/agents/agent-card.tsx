@@ -1,17 +1,9 @@
 import Link from "next/link";
-import type { Agent } from "@repo/types";
+import type { Agent, TrustTier } from "@repo/types";
 import { AgentRating } from "./agent-rating";
+import { VerifiedBadge } from "./verified-badge";
+import { TrustBadge } from "@/components/trust/trust-badge";
 import { cn, formatUSDC } from "@/lib/utils";
-
-const CATEGORY_COLORS: Record<string, string> = {
-  marketing: "bg-pink-50 text-pink-700",
-  assistant: "bg-blue-50 text-blue-700",
-  copywriting: "bg-purple-50 text-purple-700",
-  coding: "bg-green-50 text-green-700",
-  pm: "bg-orange-50 text-orange-700",
-  trading: "bg-cyan-50 text-cyan-700",
-  social: "bg-rose-50 text-rose-700",
-};
 
 interface AgentCardProps {
   agent: Agent;
@@ -23,34 +15,36 @@ export function AgentCard({ agent, className }: AgentCardProps) {
     <Link
       href={`/agents/${agent.slug}`}
       className={cn(
-        "block rounded-xl border border-gray-200 bg-white p-5 shadow-sm",
-        "hover:shadow-md hover:border-gray-300 transition-all duration-150",
-        className
+        "block bg-bg-surface border border-bg-border p-5",
+        "hover:border-text-muted transition-all duration-150",
+        className,
       )}
     >
+      {/* Top: name + badges */}
       <div className="flex items-start justify-between gap-2 mb-3">
-        <h3 className="font-semibold text-gray-900 text-sm leading-tight line-clamp-1">
+        <h3 className="font-ui text-[15px] font-semibold text-text-primary leading-tight line-clamp-1">
           {agent.name}
         </h3>
-        <span
-          className={cn(
-            "shrink-0 inline-flex px-2 py-0.5 rounded-full text-xs font-medium",
-            CATEGORY_COLORS[agent.category] ?? "bg-gray-100 text-gray-600"
-          )}
-        >
-          {agent.category}
-        </span>
+        <div className="flex items-center gap-1.5 shrink-0">
+          <VerifiedBadge totalCalls={agent.totalCalls} status={agent.status} trustTier={agent.trustTier} />
+          <TrustBadge tier={agent.trustTier as TrustTier} />
+          <span className="inline-flex px-2 py-1 bg-bg-border font-mono text-[9px] font-medium text-text-secondary capitalize">
+            {agent.category}
+          </span>
+        </div>
       </div>
 
-      <p className="text-xs text-gray-500 line-clamp-2 mb-4 leading-relaxed">
+      {/* Description */}
+      <p className="font-mono text-xs text-text-tertiary line-clamp-2 mb-4 leading-[1.6]">
         {agent.description}
       </p>
 
+      {/* Footer: rating + price */}
       <div className="flex items-center justify-between">
         <AgentRating rating={agent.ratingAvg} totalCalls={agent.totalCalls} />
-        <span className="text-sm font-semibold text-gray-900">
+        <span className="font-mono text-sm font-semibold text-lime">
           {formatUSDC(agent.pricePerCall)}
-          <span className="text-xs text-gray-400 font-normal ml-0.5">/call</span>
+          <span className="text-text-muted font-normal ml-0.5">/call</span>
         </span>
       </div>
     </Link>

@@ -1,34 +1,32 @@
 import type { Agent } from "@repo/types";
 import { AgentCard } from "./agent-card";
+import { LoadMoreButton } from "./load-more-button";
 
 interface AgentGridProps {
   agents: Agent[];
+  nextCursor?: string;
 }
 
 function SkeletonCard() {
   return (
-    <div className="rounded-xl border border-gray-200 bg-white p-5 animate-pulse">
+    <div className="bg-bg-surface border border-bg-border p-5 animate-pulse">
       <div className="flex items-start justify-between mb-3">
-        <div className="h-4 bg-gray-200 rounded w-2/3" />
-        <div className="h-5 bg-gray-200 rounded-full w-16" />
+        <div className="h-4 bg-bg-border rounded w-2/3" />
+        <div className="h-5 bg-bg-border rounded w-16" />
       </div>
       <div className="space-y-1.5 mb-4">
-        <div className="h-3 bg-gray-200 rounded w-full" />
-        <div className="h-3 bg-gray-200 rounded w-4/5" />
+        <div className="h-3 bg-bg-border rounded w-full" />
+        <div className="h-3 bg-bg-border rounded w-4/5" />
       </div>
       <div className="flex items-center justify-between">
-        <div className="h-3 bg-gray-200 rounded w-24" />
-        <div className="h-4 bg-gray-200 rounded w-14" />
+        <div className="h-3 bg-bg-border rounded w-24" />
+        <div className="h-4 bg-bg-border rounded w-14" />
       </div>
     </div>
   );
 }
 
-interface AgentGridSkeletonProps {
-  count?: number;
-}
-
-export function AgentGridSkeleton({ count = 6 }: AgentGridSkeletonProps) {
+export function AgentGridSkeleton({ count = 6 }: { count?: number }) {
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
       {Array.from({ length: count }).map((_, i) => (
@@ -38,21 +36,28 @@ export function AgentGridSkeleton({ count = 6 }: AgentGridSkeletonProps) {
   );
 }
 
-export function AgentGrid({ agents }: AgentGridProps) {
+export function AgentGrid({ agents, nextCursor }: AgentGridProps) {
   if (!agents.length) {
     return (
-      <div className="text-center py-16 text-gray-500">
-        <p className="text-lg font-medium">No agents found</p>
-        <p className="text-sm mt-1">Try adjusting your search or filters.</p>
+      <div className="text-center py-16">
+        <p className="font-ui text-lg font-medium text-text-secondary">No agents found</p>
+        <p className="font-mono text-sm mt-1 text-text-tertiary">Try adjusting your search or filters.</p>
       </div>
     );
   }
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-      {agents.map((agent) => (
-        <AgentCard key={agent.id} agent={agent} />
-      ))}
+    <div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        {agents.map((agent) => (
+          <AgentCard key={agent.id} agent={agent} />
+        ))}
+      </div>
+      {nextCursor && (
+        <div className="mt-6 flex justify-center">
+          <LoadMoreButton cursor={nextCursor} />
+        </div>
+      )}
     </div>
   );
 }

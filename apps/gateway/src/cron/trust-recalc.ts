@@ -1,18 +1,19 @@
 import { createDb } from "../lib/db";
 import { agents, agentMetrics } from "@repo/db";
 import { eq, sql, gte, and } from "drizzle-orm";
+import { computeTrustTier } from "../lib/trust-tier-thresholds";
 
 const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
-const MIN_CALLS_TO_QUALIFY = 50;
 
-function computeTrustTier(score: number): string {
-  if (score >= 90) return "platinum";
-  if (score >= 75) return "gold";
-  if (score >= 60) return "silver";
-  if (score >= 40) return "bronze";
-  return "new";
-}
-
+/**
+ * Hourly trust recalculation: computes composite trust score from 30-day metrics.
+ * Runs AFTER metrics aggregation to use consolidated data.
+ *
+ * Weighted formula:
+ *   rating(30%) + uptime(25%) + successRate(20%) + volume(15%) + speed(10%)
+ *
+ * Tier assignment respects both score AND minimum call thresholds.
+ */
 export async function handleTrustRecalc(env: { DATABASE_URL: string }) {
   const db = createDb(env.DATABASE_URL);
   const thirtyDaysAgo = new Date(Date.now() - THIRTY_DAYS_MS);
@@ -32,47 +33,46 @@ export async function handleTrustRecalc(env: { DATABASE_URL: string }) {
         uniqueWallets: sql<number>`COALESCE(SUM(unique_consumers), 0)`,
       })
       .from(agentMetrics)
-      .where(
-        and(
-          eq(agentMetrics.agentId, agent.id),
-          gte(agentMetrics.timestamp, thirtyDaysAgo)
-        )
-      );
+      .where(and(eq(agentMetrics.agentId, agent.id), gte(agentMetrics.timestamp, thirtyDaysAgo)));
 
     const m = metrics[0];
-    if (!m || Number(m.totalReqs) < MIN_CALLS_TO_QUALIFY) continue;
+    const totalReqs = Number(m?.totalReqs ?? 0);
+    const successReqs = Number(m?.successReqs ?? 0);
+    const avgLatency = Number(m?.avgLatency ?? 0);
+    const p95Latency = Number(m?.p95Latency ?? 0);
+    const uniqueWallets = Number(m?.uniqueWallets ?? 0);
 
-    const totalReqs = Number(m.totalReqs);
-    const successReqs = Number(m.successReqs);
-    const avgLatency = Number(m.avgLatency);
-    const p95Latency = Number(m.p95Latency);
-    const uniqueWallets = Number(m.uniqueWallets);
+    // Agents with 0 calls keep "new" tier
+    if (totalReqs === 0) {
+      if (agent.trustTier !== "new") {
+        await db.update(agents).set({ trustTier: "new", trustScore: "0" }).where(eq(agents.id, agent.id));
+      }
+      continue;
+    }
 
-    const successRate = totalReqs > 0 ? (successReqs / totalReqs) * 100 : 0;
-    const uptimeScore = successRate;
-    const ratingScore = parseFloat(agent.ratingAvg ?? "0") * 20; // 0-5 → 0-100
+    const successRate = (successReqs / totalReqs) * 100;
+    const ratingScore = parseFloat(agent.ratingAvg ?? "0") * 20; // 0-5 -> 0-100
     const speedScore = Math.max(0, 100 - avgLatency / 50);
     const volumeScore = Math.min(100, (totalReqs / 1000) * 100);
 
-    // Weighted composite score
     const trustScore =
       ratingScore * 0.3 +
-      uptimeScore * 0.25 +
+      successRate * 0.25 +
       successRate * 0.2 +
       volumeScore * 0.15 +
       speedScore * 0.1;
 
-    await db
-      .update(agents)
-      .set({
-        trustScore: trustScore.toFixed(2),
-        trustTier: computeTrustTier(trustScore),
-        uptime30d: uptimeScore.toFixed(2),
-        successRate30d: successRate.toFixed(2),
-        p95LatencyMs: p95Latency,
-        uniqueConsumers30d: uniqueWallets,
-      })
-      .where(eq(agents.id, agent.id));
+    // Tier respects both score AND minimum call thresholds
+    const trustTier = computeTrustTier(trustScore, totalReqs);
+
+    await db.update(agents).set({
+      trustScore: trustScore.toFixed(2),
+      trustTier,
+      uptime30d: successRate.toFixed(2),
+      successRate30d: successRate.toFixed(2),
+      p95LatencyMs: p95Latency,
+      uniqueConsumers30d: uniqueWallets,
+    }).where(eq(agents.id, agent.id));
 
     updated++;
   }

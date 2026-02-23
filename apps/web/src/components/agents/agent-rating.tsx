@@ -11,12 +11,12 @@ export function AgentRating({ rating, totalCalls, className }: AgentRatingProps)
   const filled = Math.round(isNaN(num) ? 0 : num);
 
   return (
-    <div className={cn("flex items-center gap-1", className)}>
+    <div className={cn("flex items-center gap-1.5", className)}>
       <div className="flex">
         {Array.from({ length: 5 }).map((_, i) => (
           <svg
             key={i}
-            className={cn("w-3.5 h-3.5", i < filled ? "text-yellow-400" : "text-gray-200")}
+            className={cn("w-3 h-3", i < filled ? "text-lime" : "text-text-muted")}
             fill="currentColor"
             viewBox="0 0 20 20"
           >
@@ -24,7 +24,7 @@ export function AgentRating({ rating, totalCalls, className }: AgentRatingProps)
           </svg>
         ))}
       </div>
-      <span className="text-xs text-gray-500">
+      <span className="font-mono text-[10px] text-text-tertiary">
         {isNaN(num) ? "0.0" : num.toFixed(1)}
         {totalCalls !== undefined && ` (${totalCalls.toLocaleString()})`}
       </span>

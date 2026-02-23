@@ -1,7 +1,8 @@
 "use client";
 
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
-import { useCallback } from "react";
+import { useCallback, useRef } from "react";
+import { Search } from "lucide-react";
 import type { AgentCategory } from "@repo/types";
 import { cn } from "@/lib/utils";
 
@@ -16,13 +17,26 @@ const CATEGORIES: { value: AgentCategory | "all"; label: string }[] = [
   { value: "social", label: "Social" },
 ];
 
+const TIERS = ["new", "bronze", "silver", "gold", "platinum"] as const;
+
+const SORT_OPTIONS = [
+  { value: "trust", label: "Trust Score" },
+  { value: "price_asc", label: "Price (Low)" },
+  { value: "price_desc", label: "Price (High)" },
+  { value: "newest", label: "Newest" },
+  { value: "popular", label: "Most Popular" },
+];
+
 export function AgentSearchBar() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   const currentSearch = searchParams.get("search") ?? "";
   const currentCategory = searchParams.get("category") ?? "all";
+  const currentSort = searchParams.get("sort") ?? "trust";
+  const currentTiers = searchParams.get("tier")?.split(",") ?? [];
 
   const updateParams = useCallback(
     (key: string, value: string) => {
@@ -32,44 +46,88 @@ export function AgentSearchBar() {
       } else {
         params.delete(key);
       }
-      router.push(`${pathname}?${params.toString()}`);
+      params.delete("cursor"); // Reset pagination on filter change
+      router.replace(`${pathname}?${params.toString()}`);
     },
-    [router, pathname, searchParams]
+    [router, pathname, searchParams],
+  );
+
+  const handleSearchChange = useCallback(
+    (value: string) => {
+      clearTimeout(debounceRef.current);
+      debounceRef.current = setTimeout(() => updateParams("search", value), 300);
+    },
+    [updateParams],
+  );
+
+  const toggleTier = useCallback(
+    (tier: string) => {
+      const current = new Set(currentTiers);
+      if (current.has(tier)) current.delete(tier);
+      else current.add(tier);
+      updateParams("tier", [...current].join(","));
+    },
+    [currentTiers, updateParams],
   );
 
   return (
-    <div className="space-y-3">
-      <div className="relative">
-        <svg
-          className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
+    <div className="space-y-4">
+      {/* Search + Sort row */}
+      <div className="flex gap-3">
+        <div className="relative flex-1">
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
+          <input
+            type="text"
+            placeholder="Search agents by name or description..."
+            defaultValue={currentSearch}
+            onChange={(e) => handleSearchChange(e.target.value)}
+            className="w-full pl-10 pr-4 py-2.5 bg-bg-surface border border-bg-border font-mono text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-text-muted transition-colors"
+          />
+        </div>
+        <select
+          value={currentSort}
+          onChange={(e) => updateParams("sort", e.target.value)}
+          className="bg-bg-surface border border-bg-border px-3 py-2.5 font-mono text-xs text-text-secondary focus:outline-none focus:border-text-muted"
         >
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-        </svg>
-        <input
-          type="text"
-          placeholder="Search agents..."
-          defaultValue={currentSearch}
-          onChange={(e) => updateParams("search", e.target.value)}
-          className="w-full pl-9 pr-4 py-2.5 rounded-lg border border-gray-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent"
-        />
+          {SORT_OPTIONS.map(({ value, label }) => (
+            <option key={value} value={value}>{label}</option>
+          ))}
+        </select>
       </div>
 
+      {/* Category chips */}
       <div className="flex flex-wrap gap-2">
         {CATEGORIES.map(({ value, label }) => (
           <button
             key={value}
             onClick={() => updateParams("category", value)}
             className={cn(
-              "px-3 py-1.5 rounded-full text-xs font-medium transition-colors",
+              "px-3 py-1.5 font-mono text-[11px] font-medium transition-colors",
               currentCategory === value
-                ? "bg-gray-900 text-white"
-                : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                ? "bg-lime text-black"
+                : "bg-transparent border border-bg-border text-text-tertiary hover:text-text-secondary hover:border-text-muted",
             )}
           >
             {label}
+          </button>
+        ))}
+      </div>
+
+      {/* Trust tier chips */}
+      <div className="flex items-center gap-2">
+        <span className="font-mono text-[10px] text-text-muted uppercase">Trust:</span>
+        {TIERS.map((tier) => (
+          <button
+            key={tier}
+            onClick={() => toggleTier(tier)}
+            className={cn(
+              "px-2.5 py-1 font-mono text-[10px] font-medium capitalize transition-colors",
+              currentTiers.includes(tier)
+                ? "bg-lime/20 text-lime border border-lime/40"
+                : "bg-transparent border border-bg-border text-text-muted hover:text-text-secondary hover:border-text-muted",
+            )}
+          >
+            {tier}
           </button>
         ))}
       </div>

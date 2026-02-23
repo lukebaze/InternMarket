@@ -8,6 +8,7 @@ import { createInvokeRoute } from "./routes/agent-invoke";
 import { createInfoRoute } from "./routes/agent-info";
 import { createHealthRoute } from "./routes/health";
 import { handleHealthCheck } from "./cron/health-check";
+import { handleMetricsAggregation } from "./cron/metrics-aggregation";
 import { handleTrustRecalc } from "./cron/trust-recalc";
 import type { Agent } from "@repo/db";
 
@@ -15,6 +16,8 @@ type Bindings = {
   DATABASE_URL: string;
   PLATFORM_WALLET: string;
   ENVIRONMENT: string;
+  FACILITATOR_URL: string;
+  NETWORK: string;
 };
 
 type Variables = {
@@ -65,17 +68,24 @@ app.get("/agents/:agentId", async (c) => {
 });
 
 // POST /agents/:agentId/invoke — payment gated proxy to creator's MCP endpoint
-app.all("/agents/:agentId/invoke", async (c, next) => {
+app.all("/agents/:agentId/invoke", async (c) => {
   const db = c.get("db");
-  // Apply payment middleware inline — checks X-PAYMENT header, sets agent on context
-  const paymentMiddleware = createPaymentMiddleware(db, c.env.PLATFORM_WALLET);
-  return paymentMiddleware(c, async () => {
+  const paymentMiddleware = createPaymentMiddleware(db, {
+    platformWallet: c.env.PLATFORM_WALLET,
+    facilitatorUrl: c.env.FACILITATOR_URL,
+    network: c.env.NETWORK,
+  });
+
+  // Run payment middleware, then invoke handler
+  let invokeResponse: Response | undefined;
+  await paymentMiddleware(c, async () => {
     const invokeRoute = createInvokeRoute(db);
-    // Route is mounted at "/" so strip the path prefix before delegating
     const url = new URL(c.req.url);
     url.pathname = "/";
-    return invokeRoute.fetch(new Request(url.toString(), c.req.raw), c.env, c.executionCtx);
+    invokeResponse = await invokeRoute.fetch(new Request(url.toString(), c.req.raw), c.env, c.executionCtx);
   });
+
+  return invokeResponse ?? c.json({ error: "Payment required" }, 402);
 });
 
 export default {
@@ -86,7 +96,10 @@ export default {
         ctx.waitUntil(handleHealthCheck(env));
         break;
       case "0 * * * *":
-        ctx.waitUntil(handleTrustRecalc(env));
+        // Run aggregation first, then trust recalc (sequential within same cron)
+        ctx.waitUntil(
+          handleMetricsAggregation(env).then(() => handleTrustRecalc(env))
+        );
         break;
     }
   },

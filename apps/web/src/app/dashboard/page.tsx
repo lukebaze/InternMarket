@@ -17,78 +17,88 @@ export default async function DashboardPage() {
   const recentTxs = transactions.slice(0, 5);
 
   return (
-    <div className="space-y-8">
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-bold text-gray-900">Overview</h1>
+    <>
+      {/* Top bar */}
+      <div className="flex items-center justify-between h-14 px-8 border-b border-bg-border shrink-0">
+        <h1 className="font-ui text-base font-semibold text-text-primary">Overview</h1>
         <Link
           href="/dashboard/agents/new"
-          className="px-4 py-2 rounded-lg bg-gray-900 text-white text-sm font-medium hover:bg-gray-700 transition-colors"
+          className="bg-lime text-black font-mono text-xs font-semibold px-4 py-2 hover:brightness-110 transition-all"
         >
           + New Agent
         </Link>
       </div>
 
-      <StatsOverview stats={stats} />
+      {/* Content */}
+      <div className="flex-1 overflow-y-auto p-8 space-y-6">
+        <StatsOverview stats={stats} />
 
-      {/* Recent agents */}
-      <section>
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-base font-semibold text-gray-900">Recent Agents</h2>
-          <Link href="/dashboard/agents" className="text-xs text-gray-500 hover:text-gray-900">
-            View all →
-          </Link>
-        </div>
-        {recentAgents.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-gray-200 p-8 text-center">
-            <p className="text-sm text-gray-500 mb-3">No agents yet.</p>
-            <Link
-              href="/dashboard/agents/new"
-              className="text-sm font-medium text-gray-900 underline underline-offset-2"
-            >
-              Publish your first agent
-            </Link>
-          </div>
-        ) : (
-          <div className="space-y-2">
-            {recentAgents.map((agent) => (
-              <div
-                key={agent.id}
-                className="flex items-center justify-between p-4 rounded-xl border border-gray-200 bg-white"
-              >
-                <div>
-                  <p className="text-sm font-medium text-gray-900">{agent.name}</p>
-                  <AgentRating rating={agent.ratingAvg} totalCalls={agent.totalCalls} />
-                </div>
-                <div className="flex items-center gap-4">
-                  <span className="text-sm font-semibold text-gray-900">
-                    {formatUSDC(agent.pricePerCall)}
-                    <span className="text-xs text-gray-400 font-normal">/call</span>
-                  </span>
-                  <Link
-                    href={`/dashboard/agents/${agent.id}/edit`}
-                    className="text-xs text-gray-500 hover:text-gray-900 border border-gray-200 rounded-lg px-3 py-1.5"
-                  >
-                    Edit
-                  </Link>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </section>
-
-      {/* Recent transactions */}
-      {recentTxs.length > 0 && (
+        {/* Recent agents */}
         <section>
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-base font-semibold text-gray-900">Recent Transactions</h2>
-            <Link href="/dashboard/transactions" className="text-xs text-gray-500 hover:text-gray-900">
-              View all →
+            <h2 className="font-ui text-sm font-semibold text-text-primary">Recent Agents</h2>
+            <Link href="/dashboard/agents" className="font-mono text-[11px] text-lime hover:brightness-110">
+              View All →
             </Link>
           </div>
-          <TransactionTable transactions={recentTxs} />
+          {recentAgents.length === 0 ? (
+            <div className="border border-dashed border-bg-border p-8 text-center">
+              <p className="font-mono text-sm text-text-muted mb-3">No agents yet.</p>
+              <Link
+                href="/dashboard/agents/new"
+                className="font-mono text-sm font-medium text-lime underline underline-offset-2"
+              >
+                Publish your first agent
+              </Link>
+            </div>
+          ) : (
+            <div className="border border-bg-border">
+              {/* Table header */}
+              <div className="flex items-center px-4 py-2 border-b border-bg-border bg-bg-surface">
+                <span className="flex-1 font-mono text-[10px] text-text-muted uppercase tracking-wide">Name</span>
+                <span className="w-20 font-mono text-[10px] text-text-muted uppercase tracking-wide text-right">Calls</span>
+                <span className="w-24 font-mono text-[10px] text-text-muted uppercase tracking-wide text-right">Revenue</span>
+                <span className="w-20 font-mono text-[10px] text-text-muted uppercase tracking-wide text-right">Rating</span>
+              </div>
+              {recentAgents.map((agent) => (
+                <div
+                  key={agent.id}
+                  className="flex items-center px-4 py-3 border-b border-bg-border last:border-b-0 hover:bg-bg-surface/50 transition-colors"
+                >
+                  <div className="flex-1 flex items-center gap-2">
+                    <p className="font-mono text-xs font-medium text-text-primary">{agent.name}</p>
+                    <span className="inline-flex px-1.5 py-0.5 bg-bg-border font-mono text-[8px] text-text-secondary">
+                      {agent.status ?? "Active"}
+                    </span>
+                  </div>
+                  <span className="w-20 font-mono text-xs text-text-tertiary text-right">
+                    {agent.totalCalls.toLocaleString()}
+                  </span>
+                  <span className="w-24 font-mono text-xs text-text-primary text-right">
+                    {formatUSDC(agent.pricePerCall)}
+                  </span>
+                  <div className="w-20 flex justify-end">
+                    <AgentRating rating={agent.ratingAvg} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </section>
-      )}
-    </div>
+
+        {/* Recent transactions */}
+        {recentTxs.length > 0 && (
+          <section>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="font-ui text-sm font-semibold text-text-primary">Recent Transactions</h2>
+              <Link href="/dashboard/transactions" className="font-mono text-[11px] text-lime hover:brightness-110">
+                View All →
+              </Link>
+            </div>
+            <TransactionTable transactions={recentTxs} />
+          </section>
+        )}
+      </div>
+    </>
   );
 }

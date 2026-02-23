@@ -2,11 +2,11 @@ import type { TrustTier } from "@repo/types";
 import { cn } from "@/lib/utils";
 
 const TIER_CONFIG: Record<TrustTier, { label: string; className: string }> = {
-  new: { label: "New", className: "bg-gray-100 text-gray-600 border-gray-200" },
-  bronze: { label: "Bronze", className: "bg-amber-50 text-amber-700 border-amber-200" },
-  silver: { label: "Silver", className: "bg-slate-100 text-slate-600 border-slate-300" },
-  gold: { label: "Gold", className: "bg-yellow-50 text-yellow-700 border-yellow-300" },
-  platinum: { label: "Platinum", className: "bg-indigo-50 text-indigo-700 border-indigo-200" },
+  new: { label: "New", className: "bg-bg-border text-text-secondary" },
+  bronze: { label: "Bronze", className: "bg-amber-900/30 text-amber-400" },
+  silver: { label: "Silver", className: "bg-gray-700/30 text-gray-300" },
+  gold: { label: "Gold", className: "bg-yellow-900/30 text-yellow-400" },
+  platinum: { label: "Platinum", className: "bg-lime/20 text-lime" },
 };
 
 interface TrustBadgeProps {
@@ -19,7 +19,7 @@ export function TrustBadge({ tier, className }: TrustBadgeProps) {
   return (
     <span
       className={cn(
-        "inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border",
+        "inline-flex items-center px-2.5 py-1 font-mono text-[9px] font-bold uppercase tracking-wider",
         config.className,
         className
       )}

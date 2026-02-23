@@ -4,7 +4,7 @@ import type { Agent, Transaction } from "@repo/types";
 import { auth } from "@/lib/auth";
 import { createNodeClient } from "@repo/db";
 import { agents, transactions, creators } from "@repo/db";
-import { eq, desc, count, avg, sum } from "drizzle-orm";
+import { eq, desc, count, avg, sum, inArray } from "drizzle-orm";
 
 function getDb() {
   const url = process.env.DATABASE_URL;
@@ -122,11 +122,11 @@ export async function getMyTransactions(params: { cursor?: string; limit?: numbe
 
     const agentIds = creatorAgents.map((a) => a.id);
 
-    // Fetch transactions for creator's agents
+    // Fetch transactions for all creator's agents
     const rows = await db
       .select()
       .from(transactions)
-      .where(eq(transactions.agentId, agentIds[0])) // simplified for now
+      .where(inArray(transactions.agentId, agentIds))
       .orderBy(desc(transactions.createdAt))
       .limit(limit + 1);
 

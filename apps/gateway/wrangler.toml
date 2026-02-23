@@ -5,6 +5,8 @@ compatibility_flags = ["nodejs_compat"]
 
 [vars]
 ENVIRONMENT = "development"
+FACILITATOR_URL = "https://x402.org/facilitator"
+NETWORK = "base-sepolia"
 
 [triggers]
 crons = ["*/5 * * * *", "0 * * * *"]
