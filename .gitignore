@@ -71,8 +71,8 @@ __pycache__
 prompt.md
 ck.md
 
-# Hook diagnostics logs
-.claude/hooks/.logs/
+# Claude Code (local tool config)
+.claude/
 
 # Turborepo
 .turbo/
@@ -80,4 +80,3 @@ ck.md
 
 # Gemini CLI settings (symlink to .claude/.mcp.json)
 .gemini/settings.json
-.claude/settings.bak.json
