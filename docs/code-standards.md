@@ -89,9 +89,35 @@ export async function Dashboard() {
 // Client: explicit 'use client' at top
 'use client';
 import { useState } from 'react';
-export function ConnectButton() {
-  const [connected, setConnected] = useState(false);
-  return <button onClick={() => setConnected(!connected)}>Connect</button>;
+export function ConnectWalletButton() {
+  const [connecting, setConnecting] = useState(false);
+  return <button onClick={() => handleConnect()}>Connect Wallet</button>;
+}
+```
+
+**Marketing Section Pattern:**
+```typescript
+'use client';
+import { motion } from 'framer-motion';
+import { containerVariants, itemVariants } from '@/lib/motion-variants';
+
+interface HeroSectionProps {
+  title: string;
+  subtitle?: string;
+}
+
+export function HeroSection({ title, subtitle }: HeroSectionProps) {
+  return (
+    <motion.section
+      variants={containerVariants}
+      initial="hidden"
+      whileInView="visible"
+      className="section-classes"
+    >
+      <motion.h1 variants={itemVariants}>{title}</motion.h1>
+      {subtitle && <motion.p variants={itemVariants}>{subtitle}</motion.p>}
+    </motion.section>
+  );
 }
 ```
 
@@ -190,90 +216,55 @@ export async function createAgentAction(formData: FormData) {
 - Complex middleware pipelines
 - Stream responses (SSE)
 
-## Hono Conventions (apps/gateway)
+## CLI Package Management (packages/cli)
 
-### Middleware Stack
+### Command Structure
 ```typescript
-app.use('*', cors());  // CORS first
-app.use('*', logger());  // Then logging
-app.use('*', bodyBuffering());  // Buffer body (CF Workers double-read fix)
-app.use('/api/*', authenticate());  // Then auth (future)
-```
+// packages/cli/src/commands/publish.ts
+export async function publishCommand(options: PublishOptions) {
+  // 1. Validate agent package
+  const manifest = await readManifest('./package.json');
+  validatePackage(manifest);
 
-### Route Handlers with Error Envelope
-```typescript
-// Standard JSON-RPC 2.0 response (success)
-app.get('/health', (c) => {
-  return c.json({
-    jsonrpc: '2.0',
-    result: {
-      status: 'ok',
-      timestamp: new Date().toISOString(),
-      version: 'v1'
-    },
-    id: null
+  // 2. Authenticate user
+  const authToken = await getAuthToken();
+
+  // 3. Create presigned URL
+  const uploadUrl = await fetchPresignedUrl(authToken);
+
+  // 4. Upload to R2
+  const uploadedUrl = await uploadToR2(uploadUrl, tarball);
+
+  // 5. Register on marketplace
+  const agent = await registerAgent({
+    name: manifest.name,
+    packageUrl: uploadedUrl,
+    metadata: manifest.agentMetadata
   });
-});
 
-// JSON-RPC error envelope
-app.post('/agents/:slug/invoke', async (c) => {
+  console.log(`✅ Published: ${agent.slug}`);
+}
+```
+
+### CLI Patterns
+```typescript
+// Async command with error handling
+export async function handleCommand() {
   try {
-    const body = await c.req.json();
-    // Validation & MCP invocation
-    return c.json({
-      jsonrpc: '2.0',
-      result: { agentResponse: '...' },
-      id: body.id
-    }, 200);
+    const result = await executeTask();
+    return { ok: true, message: 'Success', data: result };
   } catch (error) {
-    return c.json({
-      jsonrpc: '2.0',
-      error: {
-        code: -32603,
-        message: 'Internal error',
-        data: { details: String(error) }
-      },
-      id: null
-    }, 500);
+    console.error('[command]', error);
+    process.exit(1);
   }
-});
-```
+}
 
-### x402 Payment Config Pattern
-```typescript
-// Route handler
-app.post('/agents/:slug/invoke', async (c) => {
-  const slug = c.req.param('slug');
-  const paymentConfig = await resolveX402PaymentConfig(slug);
-
-  // Validate x402 headers
-  const x402Header = c.req.header('x402-payment');
-  if (!x402Header) {
-    return errorEnvelope(c, -32001, 'Payment required', 402);
-  }
-
-  // Process payment via config
-  const txResult = await processPayment(paymentConfig, x402Header);
-
-  return c.json({ jsonrpc: '2.0', result: txResult, id: null });
-});
-```
-
-### Type Safety
-```typescript
-type Bindings = {
-  DATABASE_URL: string;
-  PLATFORM_WALLET: string;
-  ENVIRONMENT: 'development' | 'production';
-};
-
-const app = new Hono<{ Bindings: Bindings }>();
-
-// Access in handlers
-app.get('/config', (c) => {
-  const dbUrl = c.env.DATABASE_URL;  // Type-safe!
-  return c.json({ ok: true });
-});
+// Use commander.js for CLI
+program
+  .command('publish')
+  .description('Publish agent to marketplace')
+  .option('-t, --token <token>', 'API token')
+  .action(publishCommand);
 ```
 
 ## Drizzle ORM Patterns (packages/db)
@@ -350,38 +341,53 @@ const agentsWithCreator = await db.query.agents.findMany({
 ### Enum Patterns
 ```typescript
 export type AgentCategory =
-  | 'marketing'
-  | 'assistant'
-  | 'copywriting'
-  | 'coding'
-  | 'pm'
-  | 'trading'
-  | 'social';
+  | 'utility'
+  | 'ai'
+  | 'data'
+  | 'dev-tools'
+  | 'automation'
+  | 'other';
 
 export type TrustTier = 'new' | 'bronze' | 'silver' | 'gold' | 'platinum';
-export type AgentStatus = 'active' | 'paused' | 'under_review';
+export type AgentStatus = 'published' | 'draft' | 'deprecated' | 'unlisted';
 ```
 
 ### Interface Patterns
 ```typescript
 export interface Agent {
-  // Database fields (camelCase, matching DB types)
   id: string;
   slug: string;
   creatorId: string;
   name: string;
-
-  // Financial fields: store as decimal strings for precision
-  pricePerCall: string;  // decimal
-  trustScore: string;    // decimal
-
-  // Complex data: use JSONB
-  agentCard: AgentCard | null;  // arbitrary MCP metadata
-  tools: AgentTool[] | null;
-
-  // Timestamps: always Date objects
+  description: string;
+  category: AgentCategory;
+  packageUrl: string;     // Direct R2 link
+  currentVersion: string; // e.g., "1.0.0"
+  downloads: number;
+  trustScore: number;     // 0-100
+  trustTier: TrustTier;
+  status: AgentStatus;
+  tags: string[];         // JSONB array
   createdAt: Date;
   updatedAt: Date;
+}
+
+export interface Creator {
+  id: string;
+  walletAddress: string;  // Unique identifier
+  displayName: string;
+  bio?: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface Rating {
+  id: string;
+  agentId: string;
+  userWallet: string;
+  score: number;          // 1-5
+  review?: string;
+  createdAt: Date;
 }
 ```
 

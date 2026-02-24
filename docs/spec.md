@@ -2,257 +2,328 @@
 
 ## Vision & Mission
 
-**InternMarket** (interns.market) is an AI Agent Marketplace powered by the Model Context Protocol (MCP). It enables independent AI agent creators to package, deploy, and monetize intelligent services via a blockchain-based marketplace with transparent trust metrics and fair compensation.
+**InternMarket** (interns.market) is an AI Agent Package Marketplace. It enables developers to discover, install, rate, and share MCP-compatible agents via a Web3-authenticated marketplace with built-in distribution infrastructure.
 
-**Mission:** Democratize AI agent creation and consumption by providing infrastructure for trust, discovery, and payment at the intersection of MCP and Web3.
+**Mission:** Democratize AI agent distribution by providing infrastructure for discovery, trust, and installation at the intersection of MCP and Web3.
 
 ## Target Users
 
-- **AI Agent Creators:** Independent developers, researchers, and enterprises building MCP-compatible agents
-- **AI Agent Consumers:** Developers, applications, and services seeking specialized AI capabilities
-- **Platform Builders:** Companies integrating with MCP ecosystem seeking curated, vetted agent sources
+- **Agent Creators:** Developers building MCP-compatible agents seeking distribution
+- **Agent Consumers:** Developers & applications looking for pre-built AI capabilities
+- **Community:** Web3 builders seeking trusted, auditable agent sources
 
-## Core Features
+## Core Features (Current)
 
 ### 1. Agent Marketplace
-- Searchable registry of MCP-powered AI agents
-- Agent discovery by category (marketing, assistant, coding, trading, social, copywriting, pm)
-- Creator profiles with reputation and performance metrics
-- Agent status management (active, paused, under_review)
+- Discoverable registry of MCP-powered AI agents
+- Filtering by category, downloads, rating, version
+- Creator profiles with reputation
+- Full-text search capability (Phase 2)
 
-### 2. MCP Integration Layer
-- Native MCP endpoint support - agents expose `/mcp` protocol endpoints
-- Flexible agentCard JSONB for raw MCP registry metadata
-- Tool definitions stored and displayed (name, description)
-- Full compatibility with MCP 1.0 specification
+### 2. Package Distribution
+- Direct download via CLI: `npm install @interns-market/agent-name`
+- Cloudflare R2 storage for versioned packages
+- Semantic versioning support (1.0.0, 1.0.1, etc)
+- Version history & rollback capability
 
-### 3. Trust & Reputation System
-- Trust tiers: new, bronze, silver, gold, platinum
-- Trust score calculation based on:
-  - Success rate (30-day window)
-  - Agent uptime (30-day window)
-  - Performance metrics (p95 latency, unique consumers)
-  - User ratings (1-5 scale with optional reviews)
-  - Health check status
-- Transparent metric visibility
+### 3. Trust & Reputation
+- Community ratings (1-5 stars with optional reviews)
+- Download count tracking
+- Trust tiers: new → bronze → silver → gold → platinum
+- Creator profiles with stats
 
-### 4. Performance Monitoring
-- Real-time health checks and latency tracking
-- 30-day rolling metrics:
-  - Total requests and success rate
-  - P95 latency measurements
-  - Unique consumer count
-- Time-series data storage for trend analysis
-- Health check failure tracking
+### 4. Web3 Authentication
+- Sign-In with Ethereum (SIWE) - no passwords
+- NextAuth 5 JWT sessions
+- Creator verification via wallet signature
+- Browser wallet support (MetaMask, WalletConnect, etc)
 
-### 5. Monetization via x402
-- x402 HTTP payment integration for per-call pricing
-- Payment flow: Consumer → Facilitator → Platform → Creator
-- Transaction recording with payment hash tracking
-- Platform fee deduction with creator payout calculation
-- Transaction status: pending, completed, failed, refunded
+## Database Schema (6 Tables)
 
-## Technical Architecture
-
-### Monorepo Structure (pnpm Turborepo)
+### creators
 ```
-interns-market/
-├── apps/
-│   ├── web          # Next.js 15 frontend + auth + API routes
-│   └── gateway      # Cloudflare Workers edge API
-├── packages/
-│   ├── db           # Drizzle ORM + PostgreSQL schema
-│   ├── types        # Shared TypeScript interfaces
-│   └── tsconfig     # Shared config
+id (uuid)
+walletAddress (unique, indexed)
+displayName
+bio
+createdAt
+updatedAt
 ```
 
-### Database Layer (Drizzle + Neon PostgreSQL)
-- **Neon Serverless Client** for edge/Workers
-- **Node.js pg Pool** for backend services
-- 7-table schema with cascade relationships
-
-### Frontend Stack
-- Next.js 15.1.7 with App Router
-- React 19
-- TailwindCSS 4
-- RainbowKit + Wagmi for wallet connection
-- SIWE + NextAuth 5 for Web3 auth
-
-### Gateway Layer
-- Cloudflare Workers (edge deployment)
-- Hono v4 framework
-- CORS middleware
-- Bindings: DATABASE_URL, PLATFORM_WALLET, ENVIRONMENT
-
-### Authentication
-1. Wallet connection via RainbowKit (Base, Base Sepolia, Mainnet)
-2. Nonce-based challenge from /api/nonce
-3. SiweMessage creation and signing
-4. NextAuth signature verification
-5. JWT session with address + chainId
-6. Middleware protection for /dashboard
-
-## Database Entity Relationships
-
-### Creators
+### agents
 ```
-id, walletAddress, displayName, avatarUrl, bio, totalRevenue,
+id (uuid)
+slug (unique, indexed)
+creatorId (FK → creators)
+name
+description
+category
+packageUrl (R2 link)
+currentVersion (e.g., "1.0.0")
+downloads (integer counter)
+trustScore (0-100, read-only)
+trustTier (new|bronze|silver|gold|platinum)
+status (published|draft|deprecated|unlisted)
+tags (jsonb array)
 createdAt, updatedAt
 ```
-- Primary: wallet-based identification
-- One creator → many agents
-- totalRevenue tracks lifetime payouts
 
-### Agents
+### agent_versions
 ```
-id, slug, creatorId, name, description, category, mcpEndpoint,
-creatorWallet, pricePerCall, agentCard (JSONB), tools (JSONB),
-ratingAvg, totalCalls, status, trustScore, trustTier,
-uptime30d, successRate30d, p95LatencyMs, uniqueConsumers30d,
-healthCheckFailures, createdAt, updatedAt
+id (uuid)
+agentId (FK → agents)
+version (e.g., "1.0.0")
+downloadUrl (R2 presigned URL)
+metadata (jsonb: changelog, deps, etc)
+createdAt
 ```
-- Unique slug for human-readable URLs
-- Links to creator via creatorId
-- Stores both MCP metadata and performance metrics
 
-### Transactions
+### ratings
 ```
-id, agentId, consumerWallet, amount, platformFee, creatorPayout,
-x402PaymentHash, status, createdAt
+id (uuid)
+agentId (FK → agents)
+userWallet
+score (1-5)
+review (text, optional)
+createdAt
 ```
-- Records each x402 payment
-- Tracks splits: amount → platformFee + creatorPayout
-- Links to agent via agentId
 
-### Ratings
+### downloads
 ```
-id, agentId, userWallet, score (1-5), review, createdAt
+id (uuid)
+agentId (FK → agents)
+userWallet (nullable - tracks anon downloads)
+timestamp
 ```
-- Enables trust scoring algorithm
-- Links to agent via agentId
 
-### AgentMetrics
-```
-id, agentId, timestamp, totalRequests, successfulRequests,
-failedRequests, avgLatencyMs, p95LatencyMs, uniqueConsumers
-```
-- 30-day rolling window metrics
-- Time-series data for trend analysis
+### relations
+Foreign key constraints & indices
 
-### AgentShowcase
-```
-id, agentId, title, description, inputExample, outputExample,
-sortOrder, createdAt
-```
-- Curated demo examples per agent
-- For marketplace preview
+## API Surface
 
-## Authorization Model
+### Public (No Auth)
+- `GET /api/agents` - List agents (paginated, filterable)
+- `GET /api/agents/:slug` - Agent details
+- `GET /api/search?q=...` - Full-text search
+- `GET /api/agents/:slug/versions` - Version history
+- `GET /api/agents/:slug/download` - Download redirect
 
-### Roles & Permissions
-| Role | Read | Create Agents | Modify Own | Modify Any | Admin |
-|------|------|----------------|-----------|------------|-------|
-| Anon | Yes (public) | No | No | No | No |
-| Creator | Yes + own stats | Yes | Yes | No | No |
-| Admin | All | Yes | Yes | Yes | Yes |
+### Protected (SIWE Auth Required)
+- `POST /api/agents` - Publish new agent
+- `PUT /api/agents/:slug` - Update agent metadata
+- `POST /api/agents/:slug/versions` - Upload new version
+- `POST /api/ratings` - Submit rating
+- `POST /api/upload/presigned` - Get R2 upload URL
 
-### Protection Mechanisms
-- SIWE signature verification for transaction write access
-- Middleware guards /dashboard route
-- Creator ID validation on agent modifications
-- Transaction verification against x402 payment hash
-
-## Payment Flow (x402)
-
-1. **Consumer initiates call** to agent MCP endpoint
-2. **Gateway intercepts** → checks x402 header requirements
-3. **Payment request** sent to x402 facilitator with:
-   - Amount: pricePerCall from agents table
-   - Recipient: PLATFORM_WALLET
-4. **Facilitator processes** payment
-5. **Transaction recorded** with x402PaymentHash
-6. **Split calculated**: amount × (1 - platformFeePercent) → creatorPayout
-7. **Creator wallet updated** with totalRevenue increment
+### Auth
+- `GET /api/nonce` - Get SIWE challenge
+- `POST /api/auth/[...nextauth]` - NextAuth endpoints
 
 ## Agent Lifecycle
 
-1. **Register:** Creator registers via web UI with MCP endpoint
-2. **Initial Status:** "active" or "under_review"
-3. **Health Checks:** Periodic endpoint health monitoring
-4. **Metrics Aggregation:** Hourly/daily rolling metrics updated
-5. **Trust Calculation:** Trust tier updated based on metrics
-6. **Marketplace Discovery:** Public listing if status=active
-7. **Deprecation:** Status → "paused" or delisting if healthCheckFailures spike
+1. **Creation:** Creator fills form + connects wallet
+2. **Package Upload:** CLI uploads tarball to R2
+3. **Registration:** Marketplace records metadata & version
+4. **Discovery:** Listed in search/filters if status=published
+5. **Installation:** Users install via CLI: `npm install @interns-market/slug`
+6. **Rating:** Users can rate after download
+7. **Updates:** Creator publishes new versions anytime
+8. **Deprecation:** Creator marks as deprecated or delisted
 
-## API Surface Area
+## Technology Stack
 
-### Web Frontend Routes (Next.js)
-- `GET /` - Landing page
-- `GET /api/nonce` - Challenge for SIWE signing (returns nonce for SiweMessage)
-- `POST /api/auth/[...nextauth]` - NextAuth endpoints (SIWE callback + session)
-- `GET /dashboard` - Protected creator dashboard (auth required)
-- `GET /api/agents` - List agents with pagination & filters
-- `GET /api/agents/:slug` - Agent details (metadata + creator info)
-- `POST /api/agents` - Register new agent (auth required, MCP validation)
-- `PUT /api/agents/:slug` - Update agent (auth required, ownership verified)
-- `DELETE /api/agents/:slug` - Soft delete agent (status → paused)
-- `GET /api/agents/:slug/showcase` - Agent demo examples
-- `POST /api/agents/:slug/ratings` - Submit rating (auth required)
-- `GET /creators/:wallet` - Public creator profile
+| Component | Tech |
+|-----------|------|
+| Frontend | Next.js 15, React 19, TailwindCSS 4, shadcn/ui |
+| Animations | Framer Motion |
+| Auth | SIWE 3, NextAuth 5 |
+| Wallet | ethers.js 6 |
+| Database | Drizzle ORM, Neon PostgreSQL |
+| Storage | Cloudflare R2 |
+| Package Mgr | pnpm, Turborepo |
+| Deployment | Vercel (frontend + API routes) |
 
-### Gateway Routes (Cloudflare Workers / Hono)
-- `GET /health` - Service health check (version, timestamp)
-- `POST /agents/:slug/invoke` - Call MCP agent (x402 payment required)
-- `GET /agents/:slug` - Agent detail (from gateway cache)
-- `GET /agents` - List agents (from DB)
-- `GET /agents/:slug/info` - Full agent info including MCP tools
+## Deployment Architecture
 
-### Internal Cron Jobs (Phase 1b+)
-- Health check service (every 5 min) - Validates agent endpoints
-- Metrics aggregation (hourly) - Calculates rolling 30-day stats
-- Trust recalculation (hourly) - Updates trustScore and trustTier
+```
+Browser/CLI
+    ↓ HTTPS REST
+Next.js (Vercel)
+    ├─ Pages: /, /agents, /dashboard, etc
+    ├─ API routes: /api/agents, /api/search, etc
+    └─ Static assets
+    ↓ Drizzle ORM
+Neon PostgreSQL (Serverless)
+    └─ 6 tables + indices
+    ↓ Upload/Download
+Cloudflare R2 (Global CDN)
+    └─ Versioned packages
+```
 
-## Phase 1b: Free Skill → Paid Execution MVP (Delivered)
+## CLI Package Distribution
 
-Completed Feb 23, 2026. Gateway hardened with JSON-RPC 2.0 envelope, x402 integration, and full agent CRUD API.
+### Installation
+```bash
+npm install -g @interns-market/cli
+intern-market login --wallet metamask
+intern-market publish ./my-agent
+```
 
-### Key Deliverables
-- **JSON-RPC 2.0 parser** — Handles RPC calls with standardized error envelope
-- **Slug-based routing** — Human-readable agent URLs, replaced UUID
-- **Body buffer middleware** — Fixes Cloudflare Workers double-read issue
-- **SSE passthrough** — Streams MCP responses (Server-Sent Events)
-- **x402 payment resolver** — Dynamic per-agent pricing config
-- **USDC support** — Base Mainnet + Sepolia contract addresses
-- **Refund logging** — Records upstream failures & transaction retries
-- **Agent CRUD API** — POST/GET/PUT/DELETE endpoints with validation
-- **Reference agents** — 3 CF Workers (echo, text-summarizer, code-formatter)
-- **Creator auto-creation** — First agent registration creates creator record
+### Workflow
+1. CLI reads `package.json` + MCP manifest
+2. Creates tarball (package.tar.gz)
+3. Requests presigned R2 URL
+4. Uploads directly to R2
+5. Calls `POST /api/agents` to register
+6. Returns publishable slug
 
-## Future Considerations
+### Version Management
+```bash
+intern-market publish --version 1.1.0
+# Creates agent_versions entry, updates agents.currentVersion
+```
 
-### Phase 2: Marketplace Discovery (4 weeks)
-- Advanced agent discovery (filters, sorting, full-text search)
-- Creator reputation badges
-- Featured agent listings
-- Agent analytics dashboard
+## Rating System
 
-### Phase 3: Trust System Hardening (3 weeks)
-- Auto-scoring pipeline refinement
-- Health check reliability improvements
-- Trust UI badges and certification
+- 1-5 stars with optional text review
+- Visible on agent detail page
+- Impacts trust tier calculation (Phase 3+)
+- One rating per user per agent (future: prevent duplicates)
 
-### Phase 4: Ecosystem Expansion (3+ weeks)
-- Multi-chain support (Polygon, Arbitrum, Optimism)
-- DAO governance for platform decisions
-- Creator revenue sharing (referral system)
-- Rating system integration
+## Search & Discovery (Phase 2)
 
-### Phase 5: Scale & Security (4 weeks)
-- Performance optimization (caching, indexing)
-- Security audit and hardening
-- Public beta launch
+- Full-text search on agent names/descriptions
+- Filters: category, rating, downloads, version
+- Sorting: newest, most-downloaded, highest-rated, trending
+- Pagination: 20 results per page
 
-### Breaking Changes & Deprecation
-- MCP protocol version updates will require agent revalidation
-- Trust tier thresholds adjustable with notice period
-- Platform fee structure changes: 30-day deprecation notice
+## Trust System (Phase 3+)
+
+**Current:** Trust scores are read-only for MVP
+
+**Future Formula:**
+```
+trustScore = (
+  (downloadCount / maxDownloads * 40%) +
+  (ratingAvg / 5 * 100 * 30%) +
+  (recentUptime * 30%)  // from health checks
+) / 100
+
+Tier Mapping:
+- new: <10 downloads
+- bronze: 10-99 downloads
+- silver: 100-999 downloads
+- gold: 1000+ downloads
+- platinum: 10000+ downloads + 4.5+ rating
+```
+
+## x402 Payments (Phase 4+)
+
+**Deferred to Phase 4.** Will add per-agent pricing via x402 HTTP payment header.
+
+```
+Consumer calls agent → includes x402 header
+    ↓
+Middleware validates amount = agent.pricePerCall
+    ↓
+Submits to x402 facilitator
+    ↓
+Records transaction:
+{ agentId, consumerWallet, amount,
+  platformFee: amount * 15%,
+  creatorPayout: amount * 85% }
+    ↓
+Creator totalRevenue += creatorPayout
+```
+
+## Security Model
+
+### Authentication
+- SIWE signatures verified server-side
+- No passwords or seed phrases
+- JWT sessions in httpOnly cookies
+- Middleware protects /dashboard
+
+### Authorization
+- Creators can only modify own agents
+- Database-level checks: `WHERE creatorId=?`
+- Input validation on all endpoints
+
+### Data Protection
+- TLS/HTTPS enforced
+- No sensitive data in URLs
+- Rate limiting on public endpoints (future)
+- Input sanitization on search queries
+
+## Error Handling
+
+All API responses:
+```json
+Success:
+{ "status": "ok", "data": {...} }
+
+Error:
+{ "error": "Invalid request", "message": "..." }
+
+Auth Error (401):
+{ "error": "Unauthorized" }
+```
+
+## Performance Targets
+
+| Metric | Target |
+|--------|--------|
+| Agent list p95 | <300ms |
+| Agent detail p95 | <500ms |
+| Search p95 | <200ms |
+| Package download speed | >5 Mbps (R2 CDN) |
+| Database query p95 | <100ms |
+
+## Roadmap
+
+### Current (Phase 1c)
+- [x] Agent listing & discovery
+- [x] Creator profiles
+- [x] Web3 auth (SIWE + NextAuth)
+- [x] Package distribution (R2 + CLI)
+- [x] Rating system
+- [x] Download tracking
+- [x] Marketing landing page
+
+### Phase 2 (4 weeks)
+- [ ] Full-text search
+- [ ] Advanced filtering & sorting
+- [ ] Creator analytics dashboard
+- [ ] Agent comparison
+
+### Phase 3 (3 weeks)
+- [ ] Auto-calculated trust scores
+- [ ] Health check probes
+- [ ] Metrics aggregation pipeline
+
+### Phase 4 (2 weeks)
+- [ ] x402 payment integration
+- [ ] Creator payout dashboard
+- [ ] Transaction tracking
+
+### Phase 5 (4 weeks)
+- [ ] Redis caching layer
+- [ ] Database read replicas
+- [ ] Security audit
+- [ ] Public beta launch
+
+## Known Limitations
+
+- No multi-chain support yet (Base Sepolia/mainnet only)
+- No MCP v2.0 support (v1.0 only)
+- No advanced compliance (AML/KYC)
+- No mobile app
+- x402 payments deferred to Phase 4
+
+## Success Metrics
+
+- 50+ agents published
+- 3.5+ average rating
+- <5 min creator onboarding
+- <500ms API p95 latency
+- 80%+ creator monthly retention

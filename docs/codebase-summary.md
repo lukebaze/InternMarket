@@ -1,22 +1,21 @@
 # InternMarket - Codebase Summary
 
-**Last Updated:** February 23, 2026 | **Files:** 146 | **Total LOC:** ~24,500
+**Last Updated:** February 24, 2026 | **Files:** 152 | **Total LOC:** ~26,800
 
 ## Monorepo Structure (pnpm + Turborepo v2)
 
 ```
 interns-market/
 ├── apps/
-│   ├── web/                # Next.js 15 frontend + API routes (~3,200 LOC)
-│   ├── gateway/            # Hono 4 edge API (Cloudflare Workers) (~850 LOC)
-│   └── reference-agents/   # 3 bootstrap agents (CF Workers) (~225 LOC)
+│   └── web/                # Next.js 15 + React 19 + API routes (~4,200 LOC)
+│       ├── src/app/        # App Router pages + API routes
+│       ├── src/components/ # React components (marketing, ui, agents, etc)
+│       └── src/lib/        # Utilities (auth, R2, validation)
 ├── packages/
-│   ├── db/                 # Drizzle ORM + Neon PostgreSQL (~400 LOC)
-│   ├── types/              # Shared TypeScript interfaces (~150 LOC)
+│   ├── db/                 # Drizzle ORM + Neon PostgreSQL (~450 LOC)
+│   ├── types/              # Shared TypeScript interfaces (~200 LOC)
+│   ├── cli/                # CLI client package (~1,200 LOC)
 │   └── tsconfig/           # Shared TS configurations (~50 LOC)
-├── scripts/
-│   ├── seed-marketplace.ts # Auto-register reference agents
-│   └── db-migrations.ts    # Drizzle migration runner
 ├── plans/                  # Development planning & research
 ├── docs/                   # Comprehensive documentation
 └── .claude/                # Agent configuration & rules
@@ -27,38 +26,46 @@ interns-market/
 | Package | Depends On | Purpose |
 |---------|-----------|---------|
 | @repo/web | @repo/db, @repo/types | Frontend + API routes |
-| @repo/gateway | @repo/db, @repo/types | Edge API gateway |
-| @repo/reference-agents | @repo/types | Bootstrap agents |
+| @repo/cli | @repo/types | CLI client for package management |
 | @repo/db | @repo/types | ORM + schema |
 | @repo/types | (none) | Shared interfaces |
 | @repo/tsconfig | (none) | TS configs |
 
 ## Core Packages
 
-### apps/web (~3,200 LOC)
+### apps/web (~4,200 LOC)
 
 **Frontend (Next.js 15 App Router):**
 
 Pages:
-- `/` — Landing page + marketing
-- `/agents` — Browse agents with filters
-- `/agents/:slug` — Agent detail page
+- `/` — Landing page with 7 marketing sections
+- `/agents` — Browse agents with filters & search
+- `/agents/:slug` — Agent detail page + downloads/versions
 - `/creators/:wallet` — Creator profile (public)
-- `/dashboard` — Creator dashboard (protected, auth required)
+- `/dashboard` — Creator dashboard (protected)
+- `/consumer` — Consumer home + favorites & settings
 - `/docs` — Documentation & guides
 
 **Components:**
 
-| Component | Purpose |
-|-----------|---------|
-| AuthProvider | SIWE + NextAuth session context |
-| ConnectWalletButton | RainbowKit wallet connection |
-| AgentCard | Agent preview with trust badge |
-| AgentGrid | Paginated agent listing |
-| AgentSearchBar | Full-text search input |
-| AgentRating | User review component |
-| RatingForm | Submit review modal |
-| VerifiedBadge | Trust tier indicator |
+*Marketing (9 files, 721 LOC)*
+- `animated-landing.tsx` — Composes all 7 sections
+- `hero-section.tsx` — Gradient headline, terminal animation, CTAs, trust bar
+- `problem-section.tsx` — 3 pain-point cards
+- `buyers-section.tsx` — Terminal demo, 4 benefits, category strip
+- `creators-section.tsx` — Stats, 4-step process, monetization
+- `security-section.tsx` — 4 trust pillars
+- `social-proof-section.tsx` — Testimonials, waitlist, CTAs
+- `terminal-animation.tsx` — Typewriter effect
+- `category-section.tsx` — Category pills with counts
+- `motion-variants.ts` — Shared Framer Motion animations
+
+*UI Library (8 files, 603 LOC, shadcn/ui)*
+- Badge, Button, Card, Dialog, Input, Skeleton, Table, Tabs
+
+*Agents/Rating*
+- AgentCard, AgentRating, AgentSearchBar, VerifiedBadge
+- InstallCommand, ReadmePreview, DownloadStatsCard, VersionTable
 
 **API Routes:**
 
@@ -68,129 +75,89 @@ Pages:
 | /api/auth/[...nextauth] | POST | Yes | NextAuth callback |
 | /api/agents | GET/POST | POST requires auth | List/create agents |
 | /api/agents/:slug | GET/PUT/DELETE | PUT/DELETE require auth | Agent CRUD |
-| /api/mcp/validate | POST | Yes | Validate MCP endpoint |
+| /api/agents/:slug/download | GET | No | Download agent package |
+| /api/agents/:slug/versions | GET | No | List agent versions |
+| /api/search | GET | No | Full-text search agents |
+| /api/upload/presigned | POST | Yes | Get R2 presigned URL |
+| /api/ratings | GET/POST | POST requires auth | Read/submit ratings |
 
 **Key Files:**
 - `middleware.ts` — Protects /dashboard route
 - `lib/auth.ts` — SIWE message creation
-- `lib/wagmi-config.ts` — Wagmi + RainbowKit setup
+- `lib/r2/` — Cloudflare R2 client & operations
+- `lib/package-validator.ts` — NPM package validation
 - `components/dashboard/agent-form.tsx` — Agent creation form
 
-### apps/gateway (~850 LOC)
+### packages/cli (~1,200 LOC)
 
-**JSON-RPC 2.0 Edge Gateway (Hono 4 on Cloudflare Workers):**
+**CLI Client for Agent Package Management:**
 
-**Core Services:**
+Commands:
+- `publish` — Deploy agent to marketplace
+- `install` — Install agent locally
+- `uninstall` — Remove installed agent
+- `update` — Update agent to latest version
+- `list` — Show installed agents
+- `login` — Authenticate with wallet
+- `logout` — Clear authentication
+- `analytics` — View agent performance metrics
+- `init` — Initialize new agent project
+- `package-cmd` — Package management utilities
 
-| Service | File | Purpose |
-|---------|------|---------|
-| Agent Lookup | `agent-lookup.ts` | Resolves agent by slug from DB |
-| Payment Config | `x402-payment-config-resolver.ts` | Looks up per-agent pricing |
-| Error Envelope | `error-envelope.ts` | JSON-RPC standardized errors |
-| JSON-RPC Parser | `json-rpc-parser.ts` | Validates RPC request format |
-| Transaction Logger | `transaction-logger.ts` | Records x402 payment attempts |
-| Metrics Collector | `metrics-collector.ts` | Aggregates call metrics (latency, success rate) |
+**Key Modules:**
+- `lib/api-client.ts` — HTTP client for marketplace API
+- `lib/auth-store.ts` — Wallet authentication & storage
+- `lib/config.ts` — CLI configuration management
+- `lib/extractor.ts` — Extract agent metadata from packages
+- `lib/installer.ts` — Package installation logic
+- `lib/logger.ts` — Colored console output
+- `lib/manifest-reader.ts` — Parse agent manifests
+- `lib/metadata-store.ts` — Local metadata caching
+- `lib/packager.ts` — Create deployable packages
+- `lib/signer.ts` — Sign transactions & messages
 
-**Middleware:**
+### packages/db (~450 LOC)
 
-| Middleware | File | Purpose |
-|-----------|------|---------|
-| Body Buffering | `middleware/body-buffer` | Fixes CF Workers double-read bug |
-| Rate Limiter | `middleware/rate-limiter.ts` | Per-IP throttling (future) |
-| x402 Gateway | `middleware/x402-gateway.ts` | Payment header validation |
-| CORS | Built-in Hono | Cross-origin access control |
-
-**Cron Jobs:**
-
-| Job | File | Frequency | Purpose |
-|----|------|-----------|---------|
-| Health Check | `cron/health-check.ts` | Every 5 min | Probes agent endpoints |
-| Metrics Agg | `cron/metrics-aggregation.ts` | Hourly | Rolls up 30-day stats |
-| Trust Recalc | `cron/trust-recalc.ts` | Hourly | Updates trustScore & tier |
-
-**Routes:**
-
-| Route | Method | Purpose |
-|-------|--------|---------|
-| /health | GET | Service health check (version, timestamp) |
-| /agents/:slug/invoke | POST | Call MCP agent (x402 required, JSON-RPC) |
-| /agents/:slug | GET | Agent detail (cached) |
-| /agents/:slug/info | GET | Full agent info including MCP tools |
-| /agents | GET | List agents (paginated) |
-
-### apps/reference-agents (~225 LOC)
-
-**Three Cloudflare Workers agents** bootstrapping marketplace:
-
-**echo** — Mirrors input unchanged
-```
-Method: tools/echo
-Input: { message: string }
-Output: { echoed: string, timestamp: ISO8601 }
-Endpoint: https://echo-agent.workers.dev
-```
-
-**text-summarizer** — Summarizes text using simple NLP
-```
-Method: tools/summarize
-Input: { text: string, maxLength?: number }
-Output: { summary: string, originalLength: number }
-Endpoint: https://text-summarizer-agent.workers.dev
-```
-
-**code-formatter** — Formats code (Prettier-like)
-```
-Method: tools/format
-Input: { code: string, language: string }
-Output: { formatted: string, changed: boolean }
-Endpoint: https://code-formatter-agent.workers.dev
-```
-
-**Shared:**
-- `shared/mcp-handler.ts` — Factory for MCP JSON-RPC responses
-- `SKILLS.md` — ClawHub metadata per agent
-- Seed script — Registers agents on platform
-
-### packages/db (~400 LOC)
-
-**Drizzle ORM Schema (7 tables on Neon PostgreSQL):**
+**Drizzle ORM Schema (6 tables on Neon PostgreSQL):**
 
 | Table | Key Columns | Purpose |
 |-------|------------|---------|
-| creators | id, walletAddress (unique), displayName, bio, totalRevenue | Marketplace creators |
-| agents | id, slug (unique), creatorId, name, description, category, mcpEndpoint, pricePerCall, agentCard (JSONB), tools (JSONB), trustScore, trustTier, status | MCP agent registry |
-| transactions | id, agentId, consumerWallet, amount, platformFee, creatorPayout, x402PaymentHash, status | Payment records |
-| ratings | id, agentId, userWallet, score (1-5), review | User reviews & trust signals |
-| agentMetrics | id, agentId, timestamp, totalRequests, successfulRequests, avgLatencyMs, p95LatencyMs, uniqueConsumers | 30-day rolling metrics |
-| agentShowcase | id, agentId, title, inputExample, outputExample, sortOrder | Demo examples |
+| creators | id, walletAddress (unique), displayName, bio, createdAt, updatedAt | Marketplace creators |
+| agents | id, slug (unique), creatorId, name, description, category, packageUrl, currentVersion, downloads, trustScore, trustTier, status, tags (JSONB) | Agent registry |
+| agent_versions | id, agentId, version, downloadUrl, metadata (JSONB), createdAt | Version history |
+| ratings | id, agentId, userWallet, score (1-5), review, createdAt | User reviews & trust signals |
+| downloads | id, agentId, userWallet, timestamp | Download tracking |
 | relations | Foreign key constraints | Referential integrity |
+
+**Removed:**
+- `transactions` (x402 payments deferred to Phase 4)
+- `agentMetrics` & `agentShowcase` (simplified MVP)
 
 **Key Patterns:**
 - Inferred types: `Agent`, `NewAgent`, `Creator`, etc. (zero manual duplication)
 - Relationships: `creatorAgents`, `agentCreator` (one-to-many)
-- Indices: `agents_creator_id_idx`, `agentMetrics(agentId, timestamp DESC)`
+- Indices: `agents_creator_id_idx`, `downloads_agent_id_idx`
 
 **Client Setup:**
-- Neon serverless for edge (CF Workers)
-- pg Pool for Node.js backend (connection pooling)
+- Neon serverless for edge (API routes)
+- Connection pooling via Drizzle client
 
-### packages/types (~150 LOC)
+### packages/types (~200 LOC)
 
 **Shared Enums:**
 ```typescript
-type AgentCategory = 'marketing' | 'assistant' | 'coding' | 'trading' | 'social' | 'copywriting' | 'pm';
+type AgentCategory = 'utility' | 'ai' | 'data' | 'dev-tools' | 'automation' | 'other';
 type TrustTier = 'new' | 'bronze' | 'silver' | 'gold' | 'platinum';
-type AgentStatus = 'active' | 'paused' | 'under_review';
-type TransactionStatus = 'pending' | 'completed' | 'failed' | 'refunded';
+type AgentStatus = 'published' | 'draft' | 'deprecated' | 'unlisted';
 ```
 
 **Interfaces:**
 ```typescript
-interface Agent { id, slug, creatorId, name, description, category, mcpEndpoint, pricePerCall, trustScore, trustTier, status, ... }
-interface Creator { id, walletAddress, displayName, bio, totalRevenue, createdAt, updatedAt }
-interface Transaction { id, agentId, consumerWallet, amount, platformFee, creatorPayout, x402PaymentHash, status, createdAt }
+interface Agent { id, slug, creatorId, name, description, category, packageUrl, currentVersion, downloads, trustScore, trustTier, status, tags }
+interface Creator { id, walletAddress, displayName, bio, createdAt, updatedAt }
+interface AgentVersion { id, agentId, version, downloadUrl, metadata }
 interface Rating { id, agentId, userWallet, score, review, createdAt }
-interface MCPTool { name, description, inputSchema, outputSchema }
+interface Download { id, agentId, userWallet, timestamp }
 ```
 
 ## Technology Stack
@@ -200,13 +167,14 @@ interface MCPTool { name, description, inputSchema, outputSchema }
 | Framework | Next.js | 15.1.7 | Full-stack, App Router |
 | Frontend | React | 19 | UI components |
 | Styling | TailwindCSS | 4 | Utility CSS |
+| UI Components | shadcn/ui | latest | Pre-built components |
+| Animations | Framer Motion | latest | UI animations |
 | Auth | SIWE | 3 | Sign-In with Ethereum |
 | Session | NextAuth | 5β | Session management |
-| Wallet | RainbowKit | 2.2 | Wallet UX |
-| Ethereum | Wagmi | 2.19 | EVM client |
-| Backend | Hono | 4 | Lightweight edge framework |
+| Wallet | ethers.js | 6 | EVM client (RainbowKit removed) |
 | Database | Drizzle ORM | 0.45 | Type-safe ORM |
 | Database | Neon | serverless | PostgreSQL edge runtime |
+| Storage | Cloudflare R2 | latest | Object storage for packages |
 | Package Mgr | pnpm | 10.25 | Monorepo package manager |
 | Build Cache | Turborepo | 2 | Incremental builds |
 
@@ -324,46 +292,48 @@ console.error('[moduleName:functionName]', error);  // Always prefix
 ```
 Local Workstation:
 ├─ Next.js (http://localhost:3000)
-├─ Hono (http://localhost:8787)
-├─ Reference agents (http://localhost:8788+)
+├─ CLI in local mode
 └─ Neon (serverless PostgreSQL)
 ```
 
 ### Production
 ```
-Vercel (Next.js)  +  Cloudflare Workers (Hono)  +  Neon (PostgreSQL)
-├─ HTTPS only            ├─ Edge routing             ├─ Backups enabled
-├─ Auto-deploy on push   ├─ Global distribution      └─ Connection pooling
-└─ Environment secrets   └─ 99.9% uptime
+Vercel (Next.js + API routes)  +  Neon (PostgreSQL)  +  Cloudflare R2 (Storage)
+├─ HTTPS only                  ├─ Backups enabled     ├─ Global CDN
+├─ Auto-deploy on push         └─ Connection pooling  └─ Package storage
+└─ Environment secrets
 ```
 
-## Phase 1b Completions
+## Current Phase (Phase 1c - Redesign & CLI)
 
-- [x] JSON-RPC 2.0 error envelope
-- [x] Slug-based agent routing (replaces UUID)
-- [x] Body buffer middleware (CF Workers fix)
-- [x] SSE passthrough for streaming
-- [x] x402 payment config resolver
-- [x] USDC contract addresses (Base + Sepolia)
-- [x] Transaction logging & DB retries
-- [x] Agent CRUD API (POST/GET/PUT/DELETE)
-- [x] Creator auto-creation on first registration
-- [x] Reference agents (echo, text-summarizer, code-formatter)
-- [x] Slug generator with uniqueness check
-- [x] Seed marketplace script
+Completed Feb 24, 2026. Marketing redesign with 7 high-conversion sections, UI library adoption, CLI expansion, and R2 storage integration.
+
+### Major Changes
+- [x] Landing page redesigned (7 sections with animations)
+- [x] RainbowKit removed, replaced with plain wallet button
+- [x] shadcn/ui component library integrated (8 components)
+- [x] Cloudflare R2 storage integration (3 utility modules)
+- [x] CLI expansion (10 commands, 10 utility modules)
+- [x] NPM package validation added
+- [x] Agent version tracking schema
+- [x] Download tracking schema
+- [x] Removed gateway service entirely
+- [x] Removed reference-agents entirely
+- [x] Removed x402 payment schema (deferred to Phase 4)
 
 ## Known Limitations
 
-### Phase 1b (Delivered)
-- Agent endpoints require manual onboarding (no auto-discovery yet)
-- Health checks don't auto-pause agents (Phase 3)
-- Trust scores static (Phase 3 calculates automatically)
-- No ratings UI (Phase 4)
-- No search/filtering (Phase 2)
+### Current (Phase 1c)
+- No health checks or metrics aggregation
+- No x402 payment integration (deferred)
+- No transaction tracking
+- No creator analytics dashboard
+- Trust scores static (read-only)
 
 ### Future (Phase 2+)
 - [ ] Full-text search via PostgreSQL
 - [ ] Creator analytics dashboard
-- [ ] Health check automation
+- [ ] Health check automation (cron jobs)
 - [ ] Metrics aggregation pipeline
-- [ ] Multi-chain support (Polygon, Arbitrum)
+- [ ] x402 payment integration
+- [ ] Multi-chain support

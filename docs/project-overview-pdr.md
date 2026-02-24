@@ -4,25 +4,26 @@
 
 **Name:** InternMarket (interns.market)
 
-**Type:** AI Agent Marketplace Platform (Web3 + MCP)
+**Type:** AI Agent Package Marketplace (Web3 + NPM-style distribution)
 
-**Status:** Phase 1 + Phase 1b Complete (Free Skill → Paid Execution MVP Delivered)
+**Status:** Phase 1c Complete (Redesign + CLI + R2 Storage)
 
 **Owner:** Project Team
 
-**Last Updated:** February 23, 2026
+**Last Updated:** February 24, 2026
 
 ## Problem Statement
 
-MCP-compatible AI agents exist but lack a standardized marketplace for discovery, trust, and monetization. Creators have no channel to monetize agents; consumers lack trust signals when selecting from decentralized sources.
+MCP-compatible AI agents exist but lack a standardized marketplace for discovery, distribution, and trust. Developers have no simple way to package & publish agents; consumers cannot discover or rate them.
 
 ## Solution Overview
 
-InternMarket is a blockchain-based marketplace that:
+InternMarket is a Web3 marketplace that:
 - Centralizes agent discovery with transparent metadata
-- Implements on-chain trust scoring from performance data
-- Enables direct creator-to-consumer payments via x402
-- Provides performance monitoring and reliability metrics
+- Enables NPM-style package distribution via R2 + CLI
+- Implements community trust scoring from ratings & downloads
+- Provides creator profiles with earned reputation
+- Foundation for future monetization (x402, Phase 4+)
 
 ## Target Audience
 
@@ -52,21 +53,22 @@ InternMarket is a blockchain-based marketplace that:
 
 ## Key Features (MVP + 6 Months)
 
-### MVP (Phase 1)
+### MVP (Phase 1c - Current)
 1. Agent registration and listing
-2. Creator profiles
-3. Web3 authentication (SIWE)
-4. Trust tier system (draft implementation)
-5. Transaction recording (x402 ready)
-6. Basic performance metrics
+2. Creator profiles with bio/avatar
+3. Web3 authentication (SIWE + NextAuth)
+4. Package distribution (R2 + CLI)
+5. Rating system (1-5 stars)
+6. Download tracking
+7. Marketing landing page (7 high-conversion sections)
 
-### Near-term (Phase 2-3, Months 2-6)
-7. Advanced search and filtering
-8. Creator reputation dashboard
-9. Agent analytics endpoint
-10. Payment verification workflow
-11. Health check automation
-12. Notification system
+### Near-term (Phase 2-4, Months 2-6)
+8. Full-text search & filtering
+9. Creator analytics dashboard
+10. Health check automation
+11. Trust system hardening (auto-scoring)
+12. x402 payment integration
+13. Creator payout management
 
 ## Technology Stack
 
@@ -74,31 +76,35 @@ InternMarket is a blockchain-based marketplace that:
 |---|---|---|
 | Framework | Next.js | 15.1.7 |
 | Frontend | React + TailwindCSS | 19 + 4 |
+| UI Components | shadcn/ui | latest |
+| Animations | Framer Motion | latest |
 | Auth | SIWE + NextAuth | 3 + 5beta |
-| Wallet | RainbowKit + Wagmi | 2.2 + 2.19 |
-| Backend | Hono (Cloudflare Workers) | 4 |
+| Wallet | ethers.js | 6 |
 | Database | Drizzle ORM + Neon | 0.45 + serverless |
+| Storage | Cloudflare R2 | latest |
 | Package Manager | pnpm + Turborepo | 10.25 + 2 |
 
 ## Success Criteria
 
 ### Technical
 - All endpoints have <500ms p95 latency
-- Database queries optimized with proper indexes
+- Database queries optimized with proper indices
 - Type-safe across monorepo (strict TypeScript)
 - Zero security vulnerabilities in dependencies
+- Full test coverage for API routes
 
 ### Product
-- Minimum 30 agents with >100 transactions each
-- Average agent trust score >3.5/5.0
+- 50+ agents published and discoverable
+- Average rating >3.5/5.0 stars
 - Creator retention >80% monthly
-- Platform fee structure validated through testing
+- Download tracking accurate
+- CLI install/publish working seamlessly
 
 ### Business
-- Creator onboarding time <10 minutes
-- First payment recorded within 1 day of agent registration
-- Marketplace visibility through MCP registry
-- Partner interest from 5+ MCP ecosystem projects
+- Creator onboarding time <5 minutes
+- First agent published within 1 day of signup
+- Marketplace visibility via search engines
+- 5+ partners interested in integration
 
 ## Known Constraints
 
@@ -136,14 +142,16 @@ InternMarket is a blockchain-based marketplace that:
 - x402 facilitator service (payment provider TBD)
 - Ethereum testnet/mainnet access (wallet connections)
 
-## Out of Scope (Phase 1)
+## Out of Scope (Phase 1c)
 
 - Mobile app
+- x402 payments (deferred to Phase 4)
 - DAO governance
 - Custom ML models
-- Agent hosting/execution
+- Agent execution/hosting
 - Multi-language support
 - Advanced compliance (AML/KYC)
+- Enterprise seat licensing
 
 ## Stakeholders
 

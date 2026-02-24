@@ -2,459 +2,357 @@
 
 ## High-Level Overview
 
-InternMarket is a 3-tier Web3 architecture: decentralized agents accessed via a central marketplace with blockchain authentication and x402 micropayments.
+InternMarket is a 2-tier Web3 marketplace: Next.js frontend + API routes for package management, discovery, and ratings.
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│ Web Browsers / Client Applications                          │
+│ Clients: Browser / CLI / External Apps                      │
 └────────────┬────────────────────────────────────────────────┘
-             │ HTTPS (REST + WebSocket)
+             │ HTTPS REST API
       ┌──────▼────────────────────────────────────────────────┐
-      │ Next.js Frontend (Vercel)                             │
-      │ ├─ RainbowKit + Wagmi (wallet connection)             │
-      │ ├─ SIWE Auth (Sign-In with Ethereum)                  │
-      │ ├─ NextAuth 5 (session management)                    │
-      │ └─ TailwindCSS UI                                     │
-      └──────┬──────────────────────────┬────────────────────┘
-             │                          │
-       /api/nonce                  /api/auth/...
-             │                          │
-      ┌──────▼──────────────────────────▼────────────────────┐
-      │ Edge API Gateway (Cloudflare Workers)                │
-      │ ├─ Hono v4 Framework                                  │
-      │ ├─ CORS Middleware                                    │
-      │ ├─ Request routing & validation                       │
-      │ └─ Health checks                                      │
-      └──────┬──────────────────────────────────────────────┘
-             │
-       ┌─────▼──────────────────────────────────────────────┐
-       │ Services Layer                                      │
-       │ ├─ Auth Service (SIWE verification)                │
-       │ ├─ Agent Registry Service                          │
-       │ ├─ Trust Scoring Service                           │
-       │ ├─ Payment Service (x402 integration)              │
-       │ └─ Metrics Aggregation Service                     │
-       └─────┬──────────────────────────────────────────────┘
-             │ (via Drizzle ORM)
-      ┌──────▼───────────────────────────────────────────────┐
-      │ Database Layer (Neon PostgreSQL)                     │
-      │ ├─ creators (marketplace creators)                    │
-      │ ├─ agents (MCP agent registry)                        │
-      │ ├─ transactions (payment records)                     │
-      │ ├─ ratings (trust signals)                            │
-      │ ├─ agentMetrics (30-day performance)                  │
-      │ ├─ agentShowcase (demo examples)                      │
-      │ └─ relations (foreign keys)                           │
-      └──────┬───────────────────────────────────────────────┘
-             │
-       ┌─────▼──────────────────────────────────────────────┐
-       │ External Services                                   │
-       │ ├─ x402 Facilitator (payment processing)           │
-       │ ├─ MCP Agents (agent endpoints)                    │
-       │ └─ Blockchain RPC (Base/Mainnet)                   │
-       └──────────────────────────────────────────────────────┘
+      │ Next.js 15 (Vercel)                                   │
+      │ ├─ App Router pages (/agents, /dashboard, etc)       │
+      │ ├─ API Routes (/api/agents, /api/search, etc)        │
+      │ ├─ SIWE Auth + NextAuth 5 (session)                  │
+      │ ├─ UI: React 19 + TailwindCSS + shadcn/ui            │
+      │ └─ Animations: Framer Motion                         │
+      └──────┬──────────────────┬────────────────────────────┘
+             │                  │
+         Database          Storage
+             │                  │
+      ┌──────▼───────────────────▼──────────────────────────┐
+      │ Data & Storage Layer                               │
+      ├──────────────────────────────────────────────────────┤
+      │ Neon PostgreSQL (6 tables)                           │
+      │ ├─ creators (creator profiles)                      │
+      │ ├─ agents (agent metadata)                          │
+      │ ├─ agent_versions (version history)                 │
+      │ ├─ ratings (user reviews 1-5)                       │
+      │ ├─ downloads (download tracking)                    │
+      │ └─ relations (foreign keys)                         │
+      ├──────────────────────────────────────────────────────┤
+      │ Cloudflare R2 (Package Storage)                      │
+      │ └─ Agent packages (versioned bundles)               │
+      └──────────────────────────────────────────────────────┘
 ```
 
-## Monorepo Architecture
+## Technology Stack Summary
 
-### Workspace Dependencies
-
-```
-┌────────────────────────────────────────────────────────────┐
-│ Root (pnpm Workspace + Turborepo)                          │
-│ ├─ Shared scripts: build, dev, lint, type-check, db:*     │
-│ └─ Turbo cache for incremental builds                     │
-└────────────────────────────────────────────────────────────┘
-        │
-        ├─── apps/web ────────────┐
-        │    (Next.js Frontend)    │
-        │                          │
-        ├─── apps/gateway ────────┤─── packages/db ────────┐
-        │    (Hono Workers)        │   (Drizzle ORM)        │
-        │                          │                        │
-        └─ Consumes ──────────────┴────── packages/types ──┤
-                                  │       (TypeScript)     │
-                                  │                        │
-                                  └─ packages/tsconfig ────┘
-                                     (TS configs)
-```
-
-### Workspace Communication
-
-| From | To | Protocol | Use Case |
-|------|----|----|---|
-| web ↔ web | Internal | TypeScript imports | Components, hooks |
-| web ↔ gateway | HTTP/REST | Fetch API | Agent queries, payments |
-| web ↔ db | TypeScript | Direct imports | Type checking |
-| gateway ↔ db | TypeScript | Direct imports | Schema, types |
-| gateway ↔ MCP agents | HTTP/MCP | REST/socket | Agent calls |
-| All ↔ types | TypeScript | Imports | Shared interfaces |
+- **Frontend:** Next.js 15, React 19, TailwindCSS 4, shadcn/ui, Framer Motion
+- **Auth:** SIWE 3, NextAuth 5, ethers.js
+- **Database:** Drizzle ORM, Neon PostgreSQL
+- **Storage:** Cloudflare R2
+- **Build:** pnpm, Turborepo 2
+- **Deployment:** Vercel (frontend + API routes)
 
 ## Authentication Flow
 
 ```
-User Browser                 Next.js App              Blockchain
-     │                            │                         │
-     │ 1. "Connect Wallet"        │                         │
-     ├──────────────────────→ RainbowKit                   │
-     │                            │                         │
-     │                     2. Launches modal                │
-     │◄──────────────────────────────────────────────────────
-     │
-     │ 3. User selects wallet & signs                       │
-     ├──────────────────────────────────────────────────────→
-     │ (connection in Wagmi store)                          │
-     │
-     │                     4. /api/nonce request            │
-     │◄─────────────────────────────────────────────────────
-     │
-     │ 5. Creates SiweMessage with nonce                    │
-     │    (address, chain, nonce, URI, version, etc.)       │
-     │
-     │ 6. Signs message in wallet                           │
-     ├──────────────────────────────────────────────────────→
-     │
-     │                  7. POST /api/auth/callback          │
-     │◄─────────────────────────────────────────────────────
-     │    with signature + message                          │
-     │
-     │                  8. NextAuth verifies                │
-     │                     (SIWE library validates sig)     │
-     │
-     │ 9. ✅ JWT session created                            │
-     │    session = { address, chainId }                    │
-     │
-     │ 10. Redirect to /dashboard (protected)               │
-     │◄─────────────────────────────────────────────────────
+User Browser                    Next.js App                 Blockchain
+     │                               │                           │
+     │ 1. Click "Connect Wallet"     │                           │
+     ├──────────────────────────────→│                           │
+     │ 2. Opens wallet selector      │                           │
+     │←──────────────────────────────┤                           │
+     │                               │                           │
+     │ 3. User signs in wallet       │                           │
+     │─────────────────────────────────────────────────────────→
+     │ (wallet connected in browser)  │                          │
+     │                               │                           │
+     │ 4. GET /api/nonce             │                           │
+     │←─────────────────────────────┤                           │
+     │                               │                           │
+     │ 5. Client creates SiweMessage │                           │
+     │    (address, chain, nonce, ...) │                         │
+     │ 6. Signs in wallet            │                           │
+     │─────────────────────────────────────────────────────────→
+     │                               │                           │
+     │ 7. POST /api/auth/callback    │                           │
+     │    (message + signature)      │                           │
+     │←─────────────────────────────┤                           │
+     │ 8. NextAuth verifies sig      │                           │
+     │    (SIWE library)             │                           │
+     │ 9. ✅ JWT session created    │                           │
+     │    (address, chainId)         │                           │
+     │                               │                           │
+     │ 10. Redirect /dashboard       │                           │
+     │←──────────────────────────────┤                           │
 ```
 
-**Session Storage:** NextAuth JWT (encrypted in cookie)
+**Session Storage:** NextAuth JWT (encrypted cookie, httpOnly)
 
-**Middleware Guard:**
-```typescript
-// middleware.ts
-if (pathname.startsWith('/dashboard')) {
-  if (!session) return NextResponse.redirect('/');
+## Database Schema
+
+### Creators Table
+```
+id (uuid)           → Primary key
+walletAddress       → Unique, indexed
+displayName         → Creator name
+bio                 → Profile bio
+createdAt           → Timestamp
+updatedAt           → Timestamp
+```
+
+### Agents Table
+```
+id (uuid)           → Primary key
+slug (text)         → Unique human-readable URL
+creatorId (uuid)    → FK → creators.id (CASCADE)
+name                → Agent name
+description         → Long description
+category            → Categorization
+packageUrl          → Direct package link
+currentVersion      → Latest version
+downloads           → Download counter
+trustScore          → 0-100 score (read-only)
+trustTier           → new | bronze | silver | gold | platinum
+status              → published | draft | deprecated | unlisted
+tags (jsonb)        → Array of tag strings
+createdAt, updatedAt
+```
+
+### Agent_Versions Table
+```
+id (uuid)
+agentId (uuid)      → FK → agents.id (CASCADE)
+version             → Semantic version (e.g., 1.0.0)
+downloadUrl         → URL to package archive
+metadata (jsonb)    → Changelog, dependencies, etc
+createdAt
+```
+
+### Ratings Table
+```
+id (uuid)
+agentId (uuid)      → FK → agents.id
+userWallet          → Rating author wallet
+score               → 1-5 stars
+review              → Optional text review
+createdAt
+```
+
+### Downloads Table
+```
+id (uuid)
+agentId (uuid)      → FK → agents.id
+userWallet          → Downloader wallet (can be null)
+timestamp           → Download time
+```
+
+## API Routes
+
+### Public (No Auth)
+```
+GET  /api/agents              → List agents (paginated, filterable)
+GET  /api/agents/:slug        → Agent details + versions + ratings
+GET  /api/search              → Full-text search agents
+GET  /api/agents/:slug/download → Download agent package
+GET  /api/agents/:slug/versions → Version history
+```
+
+### Protected (Auth Required)
+```
+POST /api/agents              → Create/publish agent
+PUT  /api/agents/:slug        → Update agent metadata
+POST /api/agents/:slug/versions → Upload new version
+POST /api/ratings             → Submit rating
+POST /api/upload/presigned    → Get R2 presigned URL
+```
+
+### Auth
+```
+GET  /api/nonce               → Get challenge for SIWE
+POST /api/auth/[...nextauth]  → NextAuth endpoints
+```
+
+## Storage Architecture (Cloudflare R2)
+
+Bucket structure:
+```
+r2://internmarket-packages/
+├── agents/
+│   ├── {agentId}/
+│   │   ├── v1.0.0.zip       → Package archive
+│   │   ├── v1.0.1.zip
+│   │   └── v1.1.0.zip
+│   └── {agentId}/...
+└── temp/
+    └── uploads/             → Presigned URLs for clients
+```
+
+**Presigned URLs:** Clients upload directly to R2 via presigned POST URLs (15-min expiry).
+
+## Data Flows
+
+### Agent Discovery
+```
+User visits /agents
+    ↓
+GET /api/agents?category=utility&sort=downloads&limit=20
+    ↓
+DB Query: SELECT * FROM agents WHERE status='published' AND category=?
+    ↓
+Return paginated list with creator info + version count
+    ↓
+UI renders AgentCard components
+```
+
+### Agent Detail View
+```
+User clicks agent card
+    ↓
+GET /api/agents/:slug
+    ↓
+DB Queries:
+  1. SELECT * FROM agents WHERE slug=?
+  2. SELECT * FROM ratings WHERE agentId=? ORDER BY createdAt DESC
+  3. SELECT * FROM agent_versions WHERE agentId=? ORDER BY createdAt DESC
+  4. SELECT SUM(downloads) FROM downloads WHERE agentId=?
+    ↓
+Return agent + ratings + versions + download count
+    ↓
+UI renders agent detail page
+```
+
+### Agent Installation
+```
+User runs: npm install @interns-market/my-agent
+    ↓
+CLI resolves package via API: GET /api/agents/:slug/versions
+    ↓
+Returns latest version + downloadUrl
+    ↓
+CLI downloads package from R2 presigned URL
+    ↓
+Extracts & installs locally
+    ↓
+Logs download to: POST /api/ratings (implicit, captured server-side)
+```
+
+### Rating Submission
+```
+User submits 5-star review
+    ↓
+POST /api/ratings (auth required)
+{
+  agentId: "...",
+  score: 5,
+  review: "Great agent!"
 }
-```
-
-## Data Flow: Agent Discovery
-
-```
-User clicks "Browse Agents"
-           │
-           ▼
-    GET /api/agents (from gateway or web)
-           │
-           ▼
-    Drizzle query: select * from agents where status='active'
-           │
-           ▼
-    Database returns 50 agents with:
-    - agent.name, description, category
-    - agent.trustTier, trustScore, ratingAvg
-    - agent.totalCalls, uptime30d, successRate30d
-           │
-           ▼
-    Next.js renders AgentCard components
-           │
-           ▼
-    User clicks agent → /agents/[slug]
-           │
-           ▼
-    GET /agents/[slug]
-           │
-           ▼
-    Drizzle: SELECT from agents + LEFT JOIN ratings + agentMetrics
-           │
-           ▼
-    Return full agent data with:
-    - Agent metadata + tools (JSONB)
-    - Recent ratings
-    - Last 30 days of metrics
-           │
-           ▼
-    Display agent dashboard with trust badge + pricing
-```
-
-## Data Flow: x402 Payment
-
-```
-Consumer calls MCP Agent endpoint
-           │
-           ▼
-    Gateway intercepts request
-           │
-           ▼
-    Check x402 headers
-    (required: amount, recipient, signature)
-           │
-           ▼
-    Amount = agent.pricePerCall from database
-           │
-           ▼
-    POST to x402_facilitator_url with payment request
-    {
-      amount: "0.001",
-      recipient: PLATFORM_WALLET,
-      agent: agent.id,
-      consumer: msg.sender
-    }
-           │
-           ▼
-    Facilitator processes payment
-           │
-           ▼
-    Callback: POST /api/transactions
-           │
-           ▼
-    INSERT into transactions table:
-    {
-      agentId, consumerWallet, amount,
-      platformFee = amount * 0.15,
-      creatorPayout = amount * 0.85,
-      x402PaymentHash, status: "completed"
-    }
-           │
-           ▼
-    UPDATE creators.totalRevenue += creatorPayout
-           │
-           ▼
-    Return x402 header response to consumer
-           │
-           ▼
-    Consumer receives agent response
-```
-
-## Database Schema Relationships
-
-```
-creators (1)
-    │
-    ├─ (1:N) → agents
-    │
-    └─ Identified by: walletAddress (unique)
-
-agents (1)
-    │
-    ├─ (1:N) → transactions (agentId)
-    ├─ (1:N) → ratings (agentId)
-    ├─ (1:N) → agentMetrics (agentId, time-series)
-    └─ (1:N) → agentShowcase (agentId)
-
-Key Constraints:
-- agents.creatorId REFERENCES creators.id ON DELETE CASCADE
-- transactions.agentId REFERENCES agents.id
-- ratings.agentId REFERENCES agents.id
-- agentMetrics.agentId REFERENCES agents.id
-- agentShowcase.agentId REFERENCES agents.id
-```
-
-## Trust Scoring Algorithm
-
-```
-calculateTrustScore(agent: Agent) {
-  // Weighted formula
-  successRate30d = agent.successRate30d    // 0-100
-  uptime30d = agent.uptime30d              // 0-100
-  avgRating = agent.ratingAvg              // 0-5 (normalize to 0-100)
-
-  trustScore = (
-    (successRate30d * 0.4) +
-    (uptime30d * 0.3) +
-    (avgRating / 5 * 100 * 0.3)
-  )
-
-  // Map to tier
-  if (agent.totalCalls < 100) return "new"
-  if (trustScore >= 95) return "platinum"
-  if (trustScore >= 90) return "gold"
-  if (trustScore >= 85) return "silver"
-  if (trustScore >= 80) return "bronze"
-  return "new"
-}
-```
-
-## Metrics Collection
-
-### Real-Time Metrics
-- **Source:** Each successful agent call
-- **Recorded:** In `agentMetrics` table
-- **Fields:** timestamp, totalRequests, successfulRequests, failedRequests, avgLatencyMs, p95LatencyMs, uniqueConsumers
-
-### Aggregation (Hourly)
-```
-FOR EACH agent IN agents
-  AGGREGATE last 24h of detailed metrics
-  INSERT into agentMetrics with hourly timestamp
-  UPDATE agents.uptime30d, agents.successRate30d, agents.p95LatencyMs
-  CALCULATE new trustScore
-  UPDATE agents.trustTier
-END
-```
-
-### Health Checks (Every 5 min)
-```
-FOR EACH agent with status='active'
-  HTTP GET agent.mcpEndpoint + '/health'
-  IF timeout or 5xx error
-    agent.healthCheckFailures++
-    IF failures > threshold (e.g., 12 in 1h)
-      agent.status = 'paused'
-      notify creator
-  ELSE
-    agent.healthCheckFailures = 0
-END
-```
-
-## Reference Agents Architecture (Phase 1b)
-
-Three reference agents deployed as Cloudflare Workers to bootstrap marketplace:
-
-```
-apps/reference-agents/
-├── echo/                    # Echo MCP (mirrors input)
-│   ├── src/index.ts        # Hono + MCP handler
-│   ├── wrangler.toml       # CF Workers config
-│   └── SKILLS.md           # ClawHub metadata
-├── text-summarizer/         # Summarization MCP
-│   └── Similar structure
-├── code-formatter/          # Code formatting MCP
-│   └── Similar structure
-└── shared/
-    └── mcp-handler.ts      # Factory function for MCP responses
-```
-
-### MCP Handler Factory Pattern
-```typescript
-// shared/mcp-handler.ts
-export function createMcpHandler() {
-  return async (request: Request) => {
-    const body = await request.json();
-
-    // Validate JSON-RPC 2.0
-    if (body.jsonrpc !== '2.0') {
-      return jsonRpcError(-32600, 'Invalid Request');
-    }
-
-    // Route method calls
-    if (body.method === 'initialize') {
-      return jsonRpcResult(body.id, { capabilities: { ... } });
-    }
-
-    // Process tool calls
-    return jsonRpcResult(body.id, { result: execute(body.params) });
-  };
-}
-```
-
-### ClawHub Distribution (SKILLS.md)
-Each reference agent includes SKILLS.md describing capabilities:
-```markdown
-# Echo MCP
-
-Simple echo/mirror agent. Returns input unchanged.
-
-## Capabilities
-- **Method:** tools/echo
-- **Input:** `{ message: string }`
-- **Output:** `{ echoed: string, timestamp: ISO8601 }`
-```
-
-### Seed Marketplace Script
-`scripts/seed-marketplace.ts` auto-registers reference agents:
-```bash
-pnpm seed-marketplace
-# Creates creators + agents from reference agents
-# Populates USDC pricing on Base/Sepolia
-```
-
-## Deployment Topology
-
-### Development
-```
-Local Workstation
-├─ pnpm dev (Next.js on :3000)
-├─ wrangler dev (Workers on :8787)
-├─ wrangler dev (Reference agents on :8788+)
-├─ PostgreSQL (local or neon)
-└─ .env.local (secrets)
-```
-
-### Staging
-```
-Vercel (app preview)       Cloudflare (workers preview)       Neon (staging DB)
-├─ PR → auto deploy        ├─ wrangler publish --env staging  └─ staging_ prefix
-└─ NEXTAUTH_URL: preview   └─ NEXT_PUBLIC_GATEWAY_URL: staging
-```
-
-### Production
-```
-Vercel                     Cloudflare Workers            Neon (PostgreSQL)
-├─ main branch push        ├─ wrangler publish           └─ main database
-├─ NextAuth production     ├─ Bindings via wrangler.toml   (backups enabled)
-├─ HTTPS only             ├─ Edge routing (99.9% uptime) └─ Connection pooling
-└─ Environment secrets    └─ Global distribution
+    ↓
+DB INSERT into ratings table
+    ↓
+Triggers cache invalidation: revalidatePath(/api/agents/:slug)
+    ↓
+UI updates immediately
 ```
 
 ## Scaling Considerations
 
 ### Database
-- **Current:** Single Neon instance with read replicas planned
-- **Future:** PostgreSQL read replicas in 3+ regions
-- **Caching:** Redis for trust scores, agent listings (Phase 2)
+- **Current:** Single Neon instance
+- **Bottleneck:** High-cardinality queries (search, ratings)
+- **Future:** Add read replicas, implement caching layer (Redis)
 
-### Gateway
-- **Current:** Single Cloudflare Workers script
-- **Scaling:** Automatic via Cloudflare edge (no action needed)
-- **Rate limiting:** Per IP (future)
+### Storage
+- **Current:** Cloudflare R2
+- **Scaling:** Automatic (global CDN included)
 
-### Frontend
+### API
 - **Current:** Vercel auto-scaling
-- **Future:** Geographic routing, CDN optimization
+- **Optimization:** Cache agent lists (30s TTL), implement pagination
 
-### Agents
-- **Discovery:** Rate limiting on `/agents` endpoint
-- **Health checks:** Staggered across time to avoid thundering herd
-- **Timeout:** 30s per agent health check (fail fast)
+### Search (Phase 2+)
+- Migrate to PostgreSQL full-text search
+- Or integrate Algolia for advanced filtering
 
-## Security Boundaries
+## Deployment Pipeline
 
-```
-┌─────────────────────────────────────────────────────────┐
-│ Public (No Authentication Required)                     │
-│ ├─ GET /agents (list all active agents)                │
-│ ├─ GET /agents/:slug (agent details)                   │
-│ ├─ GET /creators/:wallet (public profile)              │
-│ └─ GET /health                                          │
-└─────────────────────────────────────────────────────────┘
-             │
-┌────────────▼──────────────────────────────────────────┐
-│ Protected (SIWE Authentication + Session)             │
-│ ├─ POST /agents (create agent)                        │
-│ ├─ PUT /agents/:slug (update agent)                   │
-│ ├─ DELETE /agents/:slug (delete agent)                │
-│ ├─ POST /transactions (record payment)                │
-│ ├─ POST /ratings (submit review)                      │
-│ └─ GET /dashboard (creator analytics)                 │
-└─────────────────────────────────────────────────────────┘
-             │
-┌────────────▼──────────────────────────────────────────┐
-│ Admin (Role-based, Future)                            │
-│ ├─ PATCH /agents/:id/status (pause/resume)           │
-│ ├─ DELETE /creators/:id (account termination)        │
-│ ├─ GET /admin/analytics (platform metrics)           │
-│ └─ POST /admin/trust-tiers (adjust thresholds)       │
-└─────────────────────────────────────────────────────────┘
+### Development
+```bash
+pnpm dev
+├─ Next.js on :3000
+└─ API routes hot-reload
 ```
 
-## Failure Modes & Recovery
+### Staging (via Vercel Preview)
+```
+Git push to feature branch
+  ↓
+Vercel auto-builds preview deployment
+  ↓
+Environment: NEXTAUTH_URL=preview-url
+```
 
-| Failure | Impact | Recovery |
-|---------|--------|----------|
-| Agent endpoint down | Health check fail | Auto-pause if >threshold, creator notification |
-| x402 facilitator down | Payments blocked | Queue transaction locally, retry hourly |
-| Database connection fail | API 500 | Connection pooling retry, fallback to cache |
-| Middleware auth fail | /dashboard inaccessible | Clear cookies, redirect to login |
-| Vercel deployment fail | Web offline | Rollback to previous version automatically |
-| Workers deployment fail | Gateway offline | Rollback via wrangler, Cloudflare dashboard |
+### Production
+```
+Git push to main
+  ↓
+Vercel builds + deploys
+  ↓
+Database migrations (manual)
+  ↓
+Environment: NEXTAUTH_URL=interns.market
+```
+
+## Security Model
+
+### Authentication
+- SIWE signature verification (client-side signing, no seed phrases)
+- NextAuth JWT sessions (httpOnly cookies)
+- Middleware protects /dashboard routes
+
+### Authorization
+- Creator can modify own agents only
+- Query-level checks: `agentId IN (SELECT agents.id WHERE creatorId=?)`
+
+### Data Protection
+- No sensitive data in URL parameters
+- Rate limiting on public endpoints (future)
+- Input validation on all API routes
+
+## Error Handling
+
+### API Responses
+```typescript
+// Success
+{ status: 'ok', data: {...} }
+
+// Error
+{ error: 'Invalid request', message: 'Agent not found' }
+
+// Auth Error
+{ error: 'Unauthorized' }  → HTTP 401
+```
+
+### Database Errors
+- Wrap all queries in try-catch
+- Log errors with context: `[moduleName:functionName]`
+- Return generic error to client
+
+### Client-Side
+- Middleware catches auth failures → redirect to login
+- API errors caught in route handlers → HTTP 5xx response
+
+## Future Phases (Post-MVP)
+
+### Phase 2: Advanced Discovery
+- Full-text search on agent names/descriptions
+- Filtering by category, version, trustScore
+- Sorting: popularity, downloads, rating, newest
+
+### Phase 3: Trust System
+- Auto-calculated trust scores (read-only for now)
+- Health check probes (future)
+- Metrics aggregation (future)
+
+### Phase 4: Payments
+- x402 payment integration
+- Transaction tracking table
+- Creator payout dashboard
+
+### Phase 5: Scale & Security
+- Redis caching layer
+- Database read replicas
+- Security audit
+- Public beta launch

@@ -1,23 +1,24 @@
 # InternMarket - Project Roadmap
 
-## Current Status: MVP Complete (Phase 1 + Phase 1b)
+## Current Status: Phase 1c Complete (Redesign & CLI)
 
-**Last Updated:** February 23, 2026
+**Last Updated:** February 24, 2026
 
-**MVP Definition:** Phase 1 (Foundation) + Phase 1b (Free Skill → Paid Execution) = Full agent marketplace with Web3 auth, CRUD endpoints, and x402 payment infrastructure
+**MVP Definition:** Phase 1c = Marketing redesign + UI library + CLI package manager + R2 storage integration
 
-**Deployed:** Next.js frontend on Vercel, Hono gateway on Cloudflare Workers, 3 reference agents on CF Workers, 7-table PostgreSQL schema on Neon
+**Deployed:** Next.js 15 frontend on Vercel, 6-table PostgreSQL schema on Neon, Cloudflare R2 for package storage
 
 ## Phase Overview
 
 | Phase | Duration | Status | Focus | Target Date |
 |-------|----------|--------|-------|-------------|
 | **Phase 1: Foundation** | 4 weeks | Complete | Core infrastructure, auth, schema | Feb 23, 2026 |
-| **Phase 1b: Free Skill → Paid Execution MVP** | 1 week | **Complete** | Gateway hardening, x402, agent CRUD, reference agents | Feb 23, 2026 |
-| **Phase 2: Marketplace Discovery** | 4 weeks | Planned | Discovery API, search, filtering | ~Mar 23, 2026 |
-| **Phase 3: Trust System** | 3 weeks | Planned | Auto-scoring hardening, trust UI, badges | ~Apr 13, 2026 |
-| **Phase 4: Rating System** | 2 weeks | Planned | Ratings CRUD, weighted trust integration | ~Apr 27, 2026 |
-| **Phase 5: Scale & Polish** | 4 weeks | Planned | Performance, security, public beta | ~May 25, 2026 |
+| **Phase 1b: Free Skill → Paid Execution MVP** | 1 week | Complete | Gateway hardening, x402, agent CRUD | Feb 23, 2026 |
+| **Phase 1c: Redesign & CLI** | 1 week | **Complete** | Marketing redesign, UI lib, CLI, R2 storage | Feb 24, 2026 |
+| **Phase 2: Marketplace Discovery** | 4 weeks | Planned | Discovery API, search, filtering, analytics | ~Mar 24, 2026 |
+| **Phase 3: Trust System** | 3 weeks | Planned | Auto-scoring, health checks, metrics | ~Apr 14, 2026 |
+| **Phase 4: Payments & Ratings** | 2 weeks | Planned | x402 integration, rating system | ~Apr 28, 2026 |
+| **Phase 5: Scale & Polish** | 4 weeks | Planned | Performance, security, public beta | ~May 26, 2026 |
 
 ## Phase 1: Foundation (Complete)
 
@@ -45,227 +46,213 @@
 
 ---
 
-## Phase 1b: Free Skill → Paid Execution MVP (Complete)
+## Phase 1c: Redesign & CLI (Complete)
 
-Implemented 2026-02-23. Plan: [260223-1442-free-skill-paid-execution-model](../plans/260223-1442-free-skill-paid-execution-model/plan.md)
+Completed 2026-02-24. Major overhaul: removed gateway & reference agents, added marketing redesign, UI library, CLI package manager, R2 storage.
 
-### Delivered
+### What Changed
+- [x] **Removed:** `apps/gateway/` entirely (Hono edge API)
+- [x] **Removed:** `apps/reference-agents/` entirely (echo, text-summarizer, code-formatter)
+- [x] **Removed:** `transactions`, `agentMetrics`, `agentShowcase` DB tables
+- [x] **Removed:** RainbowKit wallet integration (replaced with plain ethers.js button)
+- [x] **Removed:** Pages: playground, spending, usage, api-keys, transactions
+- [x] **Added:** `apps/web/src/components/marketing/` (9 files, 721 LOC)
+  - Hero, problem, buyers, creators, security, social-proof, category sections
+  - Terminal animation, motion variants for Framer Motion
+- [x] **Added:** `apps/web/src/components/ui/` (8 shadcn/ui components)
+  - Badge, button, card, dialog, input, skeleton, table, tabs
+- [x] **Added:** `apps/web/src/lib/r2/` (R2 client & operations)
+- [x] **Added:** `packages/cli/` (10 commands, 10 utility modules)
+  - publish, install, uninstall, update, list, login, logout, analytics, init, package-cmd
+- [x] **Added:** `packages/db/schema/agent-versions.ts` (version tracking)
+- [x] **Added:** `packages/db/schema/downloads.ts` (download tracking)
+- [x] **Added:** `packages/cli/src/lib/package-validator.ts` (NPM validation)
+- [x] **Added:** API routes: search, upload/presigned, download, versions
+- [x] **Added:** Pages: consumer/favorites, consumer/settings, dashboard/settings
 
-| Item | Status | Notes |
-|------|--------|-------|
-| JSON-RPC 2.0 parser + error envelope | Complete | `gateway/src/lib/json-rpc-parser.ts`, `error-envelope.ts` |
-| Slug-based routing | Complete | Replaced UUID routing; `agent-lookup.ts` by slug |
-| Body buffer middleware | Complete | Fixes CF Workers double-read |
-| SSE passthrough | Complete | Streaming MCP responses |
-| Payment config resolver | Complete | Dynamic per-agent pricing via `x402-payment-config-resolver.ts` |
-| USDC contract addresses | Complete | Base Mainnet + Sepolia in `x402-config.ts` |
-| Refund transaction logging | Complete | Records upstream failures |
-| DB write retry wrapper | Complete | Handles transient Neon errors |
-| Testnet fallback | Complete | Gated behind `TESTNET_ONLY=true` env var |
-| POST /api/agents | Complete | Create agent with MCP validation, auto-populate tools |
-| GET /api/agents/:slug | Complete | Single agent detail with creator info |
-| PUT /api/agents/:slug | Complete | Partial update with ownership check |
-| DELETE /api/agents/:slug | Complete | Soft delete (status = paused) |
-| Slug generator | Complete | Uniqueness check; `web/src/lib/slug-generator.ts` |
-| Creator auto-creation | Complete | First agent registration creates creator record |
-| Reference agents (3) | Complete | echo, text-summarizer, code-formatter (CF Workers) |
-| Shared MCP handler factory | Complete | `reference-agents/shared/mcp-handler.ts` |
-| Seed marketplace script | Complete | `scripts/seed-marketplace.ts` |
+### Simplified Architecture
+- **Was:** 3-tier (browser → Next.js → Hono gateway → Neon)
+- **Now:** 2-tier (browser/CLI → Next.js + API routes → Neon + R2)
+- **Benefit:** Reduced complexity, faster iteration, single deployment surface
 
 ---
 
 ## Phase 2: Marketplace Discovery (Planned - 4 weeks)
 
+Target: ~Mar 24, 2026. Transform basic agent listing into discovery engine.
+
 ### Objectives
-- Implement agent listing & filtering
-- Full-text search capability
-- Category-based navigation
-- Creator profile pages
-- Agent detail page with showcase examples
+- Full-text search via PostgreSQL (pg_trgm extension)
+- Advanced filtering: category, downloads, rating, version
+- Creator profile pages with agent showcase
+- Download statistics & trending agents
+- Agent comparison UI
 
 ### Key Features
 
 ```
-GET /api/agents
-  ?category=coding
-  &sort=trustScore
-  &limit=20
-  &offset=0
+GET /api/search?q=code&category=utility&sort=downloads&limit=20
 
 Response: {
   agents: [
     {
-      id, slug, name, description, category,
-      trustTier, trustScore, ratingAvg,
-      creator: { displayName, walletAddress },
-      _count: { totalCalls, uniqueConsumers30d }
+      slug, name, description, category, currentVersion,
+      downloads, trustScore, trustTier,
+      ratingAvg, creator: { displayName, walletAddress }
     }
   ],
-  total: 143
+  total: 42
 }
 
-GET /agents/:slug
-  Response includes:
-  - Full agent metadata
-  - Creator info
-  - Recent ratings (sorted by createdAt DESC)
-  - Last 30 days of metrics
-  - Showcase examples
+GET /api/agents?sort=downloads&limit=10&offset=0
+  Response: Popular agents with download counts
 ```
 
-### Database Queries to Add
-- `findAgentsByCategory(category)` with pagination
-- `findAgentsByCreator(creatorId)`
-- `findTopAgentsByTrustScore(limit)`
-- `searchAgents(query)` (full-text search)
-- `getAgentWithMetrics(agentId)`
+### Planned Components
+- SearchBar with autocomplete via `/api/search`
+- AgentCard enhanced with download count badge
+- CreatorProfile page showing all published agents
+- DownloadStatsCard (trending chart)
+- FilterSidebar (category, rating, version)
 
-### UI Components
-- `AgentCard` component (trust badge, price, rating)
-- `AgentList` with filters/sorting
-- `CreatorProfile` page
-- `AgentDetail` page with tabs (overview, metrics, ratings, showcase)
-- `SearchBar` with autocomplete
+### Database Optimizations
+- Create full-text search index on `agents.name` & `agents.description`
+- Add index on `downloads(agentId)` for count aggregations
+- Cache popular agents list (30s TTL)
 
 ### Success Criteria
-- <300ms agent list query (p95)
-- Full-text search working
-- 10+ agents indexed and discoverable
-- Creator profiles populated
+- Full-text search returns results in <100ms
+- 50+ agents discoverable
+- Download tracking accurate
+- Creator pages show all agent versions
 
 ---
 
 ## Phase 3: Trust System (Planned - 3 weeks)
 
+Target: ~Apr 14, 2026. Automate trust scoring and reliability monitoring.
+
 ### Objectives
-- Automate trust score calculation
-- Implement trust tier assignment logic
-- Health check service
-- Metrics aggregation pipeline
+- Auto-calculate trust scores from download + rating data
+- Implement health check probes for agent endpoints
+- Metrics aggregation pipeline (hourly rolls)
+- Trust tier badge UI
 
 ### Key Features
 
-**Trust Scoring Algorithm:**
+**Trust Scoring Formula:**
 ```typescript
+// Read-only score based on available signals
 trustScore = (
-  (successRate30d * 0.40) +
-  (uptime30d * 0.30) +
-  (ratingAvg / 5 * 100 * 0.30)
-) / 100  // 0-100 scale
+  (downloadCount / maxDownloads * 0.40) +
+  (ratingAvg / 5 * 100 * 0.30) +
+  (recentUptime * 0.30)  // future: health checks
+)
 
 Tier Mapping:
-- "new": totalCalls < 100 OR freshly registered
-- "bronze": trustScore >= 80, totalCalls >= 100
-- "silver": trustScore >= 85, totalCalls >= 500
-- "gold": trustScore >= 90, totalCalls >= 1000
-- "platinum": trustScore >= 95, totalCalls >= 2000 + zero recent failures
+- "new": downloads < 10
+- "bronze": 10-99 downloads
+- "silver": 100-999 downloads
+- "gold": 1000+ downloads
+- "platinum": 10000+ downloads + 4.5+ avg rating
 ```
 
-**Health Check Service:**
+**Health Check Service (Phase 3b):**
 ```
 Every 5 minutes:
-  FOR each active agent:
-    HTTP GET {mcpEndpoint}/health
-    Record latency, status
-    If 3+ consecutive failures:
-      agent.status = "paused"
-      Notify creator via email/webhook
+  FOR each published agent:
+    Ping {packageUrl} (download endpoint)
+    Record response time, status
+    If failed 3x in a row:
+      Alert creator via webhook
+      (don't auto-pause; creator decides)
 ```
 
-**Metrics Aggregation:**
+**Metrics Aggregation (Phase 3b):**
 ```
-Hourly:
+Hourly batch job:
   FOR each agent:
-    Aggregate raw transaction metrics (last 24h)
-    Calculate: successRate, avgLatency, p95Latency, uniqueConsumers
-    Insert into agentMetrics table
-    Update agents table with 30-day rolling values
-    Recalculate trustScore and trustTier
+    COUNT downloads in last 24h
+    CALC average rating from ratings table
+    UPDATE agents table
+    RECALC trustScore and trustTier
+    Store historical snapshot
 ```
 
 ### Database Changes
-- Add `agent.healthCheckLastRun: timestamp`
-- Add `agent.healthCheckLastStatus: 'ok' | 'failed'`
-- Add `agent.lastMetricsUpdate: timestamp`
-- Create indices on `agentMetrics(agentId, timestamp DESC)`
+- Add `agents.ratingCount, ratingSum` (denormalized)
+- Add `agents.lastHealthCheckTime, lastHealthCheckStatus`
+- Create `agentMetricsHistory` table for trends
 
 ### Services to Implement
-- `HealthCheckService` (runs every 5 min)
-- `MetricsAggregationService` (runs hourly)
-- `TrustScoringService` (calculates scores)
-- `NotificationService` (alerts creators)
+- `HealthCheckService` (cron, 5-min interval)
+- `MetricsAggregationService` (cron, hourly)
+- `TrustScoringService` (recalc on demand)
 
 ### Success Criteria
-- Trust tiers auto-updated for all agents
-- Health checks running reliably
-- No false positives (agent marked paused when still up)
-- <1 min to detect agent failure
+- Trust scores auto-update hourly
+- Health checks 100% reliable (no false positives)
+- Creator notifications working
+- TrustBadge UI updated on agent cards
 
 ---
 
-## Phase 4: Payments & Monetization (Planned - 3 weeks)
+## Phase 4: Payments & Ratings (Planned - 2 weeks)
 
 ### Objectives
-- Integrate x402 payment protocol
-- Implement payment verification
-- Creator payout tracking
-- Transaction dashboard
+- Add rating system UI
+- Integrate x402 payment protocol for agent calls
+- Transaction tracking & creator payouts
+- Payment verification workflow
 
 ### Key Features
 
+**Rating System:**
+- Submit 1-5 star review with optional text
+- UI: Modal form on agent detail page
+- Display: Recent reviews sorted by recency
+- Impact: Feeds into trust score calculation
+
 **x402 Integration:**
-```
-1. Consumer calls agent → includes x402 header
-2. Gateway intercepts, validates amount = agent.pricePerCall
-3. Submits to x402_facilitator_url for payment processing
-4. Facilitator returns payment_hash
-5. Gateway records transaction:
-   {
-     agentId, consumerWallet, amount,
-     platformFee: amount * 0.15,
-     creatorPayout: amount * 0.85,
-     x402PaymentHash: hash,
-     status: "completed"
-   }
-6. Update creator.totalRevenue += creatorPayout
-```
+- Add `transactions` table back to schema
+- Per-agent pricing: `agents.pricePerCall`
+- Payment flow:
+  ```
+  Consumer calls agent
+    ↓
+  x402 header validation
+    ↓
+  Submit to facilitator
+    ↓
+  Record transaction:
+    { agentId, consumerWallet, amount,
+      platformFee, creatorPayout, status }
+    ↓
+  Update creator.totalRevenue
+  ```
 
 **Creator Payout Dashboard:**
 ```
-GET /api/creators/:wallet/payouts
-  [
-    {
-      period: "2026-02",
-      totalRevenue: "5.230",
-      transactions: 523,
-      payoutStatus: "pending" | "processing" | "completed"
-    }
-  ]
-
 GET /api/creators/:wallet/transactions
   [
-    {
-      id, agentId, consumerWallet, amount,
-      platformFee, creatorPayout, status,
-      createdAt
-    }
+    { id, agentId, amount, platformFee,
+      creatorPayout, status, createdAt }
   ]
+
+GET /api/creators/:wallet/payouts
+  Monthly payout summary with status
 ```
 
-### Payout Strategy (Future)
-```
-Manual or automated:
-- Minimum threshold: 0.1 ETH
-- Frequency: monthly or weekly
-- Destination: creator's connected wallet
-- Fee: 0.5% per payout
-```
+### Database Changes
+- Restore `transactions` table
+- Add `agents.pricePerCall` (decimal)
+- Add `creators.totalRevenue` (decimal)
 
 ### Success Criteria
-- 100+ transactions recorded and verified
-- 0 payment hash mismatches
-- Creator dashboard shows accurate payouts
-- Integration with facilitator tested end-to-end
+- 50+ ratings submitted
+- Transaction tracking accurate
+- Creator payouts calculated correctly
+- Zero payment mismatches
 
 ---
 
