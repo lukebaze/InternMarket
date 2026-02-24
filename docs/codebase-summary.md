@@ -134,7 +134,7 @@ Commands:
 - `agentMetrics` & `agentShowcase` (simplified MVP)
 
 **Key Patterns:**
-- Inferred types: `Agent`, `NewAgent`, `Creator`, etc. (zero manual duplication)
+- Inferred types: `Agent`, `Creator`, etc. (zero duplication via Drizzle `$inferSelect`/`$inferInsert`)
 - Relationships: `creatorAgents`, `agentCreator` (one-to-many)
 - Indices: `agents_creator_id_idx`, `downloads_agent_id_idx`
 

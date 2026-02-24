@@ -184,10 +184,10 @@ Hourly batch job:
 - Add `agents.lastHealthCheckTime, lastHealthCheckStatus`
 - Create `agentMetricsHistory` table for trends
 
-### Services to Implement
-- `HealthCheckService` (cron, 5-min interval)
-- `MetricsAggregationService` (cron, hourly)
-- `TrustScoringService` (recalc on demand)
+### Services to Implement (Phase 3+)
+- Health check endpoint (agent uptime monitoring)
+- Metrics aggregation (download/usage stats)
+- Trust score recalculation (on rating changes)
 
 ### Success Criteria
 - Trust scores auto-update hourly
