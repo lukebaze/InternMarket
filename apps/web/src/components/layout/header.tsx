@@ -6,6 +6,8 @@ import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { SignedIn, SignedOut, SignInButton, UserButton } from "@clerk/nextjs";
 
+const hasClerkKey = !!process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
+
 const NAV_LINKS = [
   { href: "/agents", label: "Browse Interns" },
   { href: "/dashboard", label: "Dashboard" },
@@ -44,16 +46,27 @@ export function Header() {
 
         <div className="flex items-center gap-3">
           <div className="hidden sm:flex items-center gap-2">
-            <SignedIn>
-              <UserButton afterSignOutUrl="/" />
-            </SignedIn>
-            <SignedOut>
-              <SignInButton mode="modal">
-                <button className="font-mono text-[13px] text-text-tertiary hover:text-text-secondary transition-colors px-3 py-1.5 border border-bg-border">
-                  Sign In
-                </button>
-              </SignInButton>
-            </SignedOut>
+            {hasClerkKey ? (
+              <>
+                <SignedIn>
+                  <UserButton afterSignOutUrl="/" />
+                </SignedIn>
+                <SignedOut>
+                  <SignInButton mode="modal">
+                    <button className="font-mono text-[13px] text-text-tertiary hover:text-text-secondary transition-colors px-3 py-1.5 border border-bg-border">
+                      Sign In
+                    </button>
+                  </SignInButton>
+                </SignedOut>
+              </>
+            ) : (
+              <Link
+                href="/dashboard"
+                className="font-mono text-[13px] text-text-tertiary hover:text-text-secondary transition-colors px-3 py-1.5 border border-bg-border"
+              >
+                Dashboard
+              </Link>
+            )}
           </div>
 
           {/* Mobile hamburger */}
