@@ -26,13 +26,32 @@ const TESTIMONIALS = [
 
 export function SocialProofSection() {
   const [email, setEmail] = useState("");
-  const [submitted, setSubmitted] = useState(false);
+  const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
+  const [errorMsg, setErrorMsg] = useState("");
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!email) return;
-    // TODO: wire to API endpoint
-    setSubmitted(true);
+    setStatus("loading");
+    try {
+      const res = await fetch("/api/waitlist", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+      if (res.ok) {
+        setStatus("success");
+      } else if (res.status === 409) {
+        setStatus("success"); // treat duplicate as success for UX
+      } else {
+        const data = await res.json();
+        setErrorMsg(data.error || "Something went wrong");
+        setStatus("error");
+      }
+    } catch {
+      setErrorMsg("Network error");
+      setStatus("error");
+    }
   }
 
   return (
@@ -64,9 +83,15 @@ export function SocialProofSection() {
           ))}
         </div>
 
-        {/* Live counter */}
-        <motion.div variants={fadeUp} className="font-mono text-sm text-text-muted text-center">
-          <span className="text-lime font-semibold">847</span> agents installed this week
+        {/* Testimonial disclaimer */}
+        <motion.p variants={fadeUp} className="font-mono text-[10px] text-text-muted italic text-center">
+          Testimonials represent the vision for InternMarket.
+        </motion.p>
+
+        {/* Early access badge */}
+        <motion.div variants={fadeUp} className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-lime/30 bg-lime/5">
+          <span className="w-2 h-2 rounded-full bg-lime animate-pulse" />
+          <span className="font-mono text-xs text-lime font-medium">Early Access — Limited Beta</span>
         </motion.div>
 
         {/* Final CTA */}
@@ -93,26 +118,33 @@ export function SocialProofSection() {
           </div>
 
           {/* Waitlist */}
-          {submitted ? (
+          {status === "success" ? (
             <p className="font-mono text-sm text-lime">You&rsquo;re on the list!</p>
           ) : (
-            <form onSubmit={handleSubmit} className="flex items-center gap-2 w-full max-w-md">
-              <label htmlFor="waitlist-email" className="sr-only">Email address</label>
-              <input
-                id="waitlist-email"
-                type="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@company.com"
-                className="flex-1 px-4 py-2.5 rounded-md bg-bg-surface border border-bg-border font-mono text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-lime/50"
-              />
-              <button
-                type="submit"
-                className="px-5 py-2.5 rounded-md bg-lime/10 border border-lime/30 font-mono text-sm font-medium text-lime hover:bg-lime/20 transition-colors"
-              >
-                Join Waitlist
-              </button>
+            <form onSubmit={handleSubmit} className="flex flex-col items-center gap-2 w-full max-w-md">
+              <div className="flex items-center gap-2 w-full">
+                <label htmlFor="waitlist-email" className="sr-only">Email address</label>
+                <input
+                  id="waitlist-email"
+                  type="email"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="you@company.com"
+                  disabled={status === "loading"}
+                  className="flex-1 px-4 py-2.5 rounded-md bg-bg-surface border border-bg-border font-mono text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-lime/50 disabled:opacity-50"
+                />
+                <button
+                  type="submit"
+                  disabled={status === "loading"}
+                  className="px-5 py-2.5 rounded-md bg-lime/10 border border-lime/30 font-mono text-sm font-medium text-lime hover:bg-lime/20 transition-colors disabled:opacity-50"
+                >
+                  {status === "loading" ? "Joining..." : "Join Waitlist"}
+                </button>
+              </div>
+              {status === "error" && (
+                <p className="font-mono text-xs text-red-400">{errorMsg}</p>
+              )}
             </form>
           )}
         </motion.div>

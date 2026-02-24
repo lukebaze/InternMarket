@@ -15,7 +15,7 @@ const fadeUp: Variants = {
   visible: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 280, damping: 22 } },
 };
 
-const STATS = ["1,200+ agents", "50k+ installs", "4.8 avg rating"];
+const STATS = ["Early Access", "Open Beta", "Join the Ecosystem"];
 
 export function HeroSection() {
   return (

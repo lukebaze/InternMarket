@@ -8,14 +8,14 @@ import {
   ClipboardList, TrendingUp, MessageCircle,
 } from "lucide-react";
 
-const CATEGORIES: { key: AgentCategory; label: string; count: number; icon: React.ElementType }[] = [
-  { key: "marketing", label: "Marketing", count: 120, icon: Megaphone },
-  { key: "assistant", label: "Assistant", count: 95, icon: Bot },
-  { key: "copywriting", label: "Copywriting", count: 84, icon: PenTool },
-  { key: "coding", label: "Coding", count: 210, icon: Code },
-  { key: "pm", label: "PM", count: 67, icon: ClipboardList },
-  { key: "trading", label: "Trading", count: 53, icon: TrendingUp },
-  { key: "social", label: "Social", count: 72, icon: MessageCircle },
+const CATEGORIES: { key: AgentCategory; label: string; icon: React.ElementType }[] = [
+  { key: "marketing", label: "Marketing", icon: Megaphone },
+  { key: "assistant", label: "Assistant", icon: Bot },
+  { key: "copywriting", label: "Copywriting", icon: PenTool },
+  { key: "coding", label: "Coding", icon: Code },
+  { key: "pm", label: "PM", icon: ClipboardList },
+  { key: "trading", label: "Trading", icon: TrendingUp },
+  { key: "social", label: "Social", icon: MessageCircle },
 ];
 
 export function CategorySection() {
@@ -25,7 +25,7 @@ export function CategorySection() {
         Browse By Category
       </h3>
       <div className="flex flex-wrap gap-3">
-        {CATEGORIES.map(({ key, label, count, icon: Icon }, i) => (
+        {CATEGORIES.map(({ key, label, icon: Icon }, i) => (
           <Link key={key} href={`/agents?category=${key}`}>
             <motion.div
               initial={{ opacity: 0, y: 10 }}
@@ -36,7 +36,6 @@ export function CategorySection() {
             >
               <Icon className="w-4 h-4 text-lime" />
               <span className="font-mono text-[11px] font-medium text-text-primary">{label}</span>
-              <span className="font-mono text-[10px] text-text-muted">({count})</span>
             </motion.div>
           </Link>
         ))}

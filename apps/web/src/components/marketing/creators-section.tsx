@@ -4,12 +4,6 @@ import { motion } from "framer-motion";
 import { Package, Upload, DollarSign, TrendingUp, Quote } from "lucide-react";
 import { stagger, fadeUp } from "./motion-variants";
 
-const STATS = [
-  { value: "10K+", label: "Creators" },
-  { value: "$2M+", label: "Earned" },
-  { value: "50K+", label: "Installs" },
-];
-
 const STEPS = [
   { icon: Package, title: "Package", desc: "Bundle your CLAUDE.md, tools, and prompts" },
   { icon: Upload, title: "Publish", desc: "Push to the registry with one command" },
@@ -43,15 +37,10 @@ export function CreatorsSection() {
           </h2>
         </motion.div>
 
-        {/* Stats row */}
-        <motion.div variants={fadeUp} className="flex gap-6 md:gap-10">
-          {STATS.map(({ value, label }, i) => (
-            <div key={i} className="flex flex-col gap-1">
-              <span className="font-ui text-2xl md:text-3xl font-bold text-lime">{value}</span>
-              <span className="font-mono text-xs text-text-muted">{label}</span>
-            </div>
-          ))}
-        </motion.div>
+        {/* Vision text */}
+        <motion.p variants={fadeUp} className="font-mono text-sm text-text-secondary max-w-xl">
+          Join a growing community of creators building the future of AI agent distribution.
+        </motion.p>
 
         {/* 4-step process */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-5">
@@ -101,6 +90,9 @@ export function CreatorsSection() {
             </p>
             <p className="font-mono text-[11px] text-text-muted">
               Marcus Rivera, Independent Creator
+            </p>
+            <p className="font-mono text-[10px] text-text-muted italic mt-1">
+              This testimonial represents our vision for the platform.
             </p>
           </div>
         </motion.div>
