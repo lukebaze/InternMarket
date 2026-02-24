@@ -83,13 +83,13 @@ export function SocialProofSection() {
               <Sparkles className="w-4 h-4" />
               Browse Agents
             </Link>
-            <Link
-              href="/dashboard"
+            <a
+              href="#creators"
               className="flex items-center gap-2 font-mono text-sm text-text-primary px-6 py-3 rounded-md border border-bg-border bg-bg-surface hover:border-lime/50 transition-colors"
             >
               <Upload className="w-4 h-4 text-text-muted" />
               Start Selling
-            </Link>
+            </a>
           </div>
 
           {/* Waitlist */}

@@ -25,7 +25,7 @@ const MODELS = [
 
 export function CreatorsSection() {
   return (
-    <section className="py-20 md:py-28 px-6 md:px-12 border-t border-bg-border">
+    <section id="creators" className="py-20 md:py-28 px-6 md:px-12 border-t border-bg-border scroll-mt-16">
       <motion.div
         variants={stagger}
         initial="hidden"

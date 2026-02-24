@@ -20,10 +20,43 @@ const STATS = ["1,200+ agents", "50k+ installs", "4.8 avg rating"];
 export function HeroSection() {
   return (
     <section className="relative flex flex-col items-center justify-center min-h-[90vh] py-20 px-6 md:px-12 bg-bg-page overflow-hidden">
-      {/* Ambient glow */}
-      <div className="absolute inset-0 pointer-events-none">
-        <div className="absolute top-0 left-1/4 w-[500px] h-[500px] bg-lime/8 rounded-full blur-[140px]" />
-        <div className="absolute bottom-0 right-1/4 w-[500px] h-[500px] bg-blue-500/6 rounded-full blur-[140px]" />
+      {/* Animated background */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        {/* Grid pattern */}
+        <div className="absolute inset-0 bg-[linear-gradient(to_right,#4f4f4f2e_1px,transparent_1px),linear-gradient(to_bottom,#4f4f4f2e_1px,transparent_1px)] bg-[size:40px_40px] [mask-image:radial-gradient(ellipse_80%_50%_at_50%_0%,#000_70%,transparent_100%)]" />
+
+        {/* Moving glow lines */}
+        <motion.div
+          initial={{ opacity: 0, y: -200 }}
+          animate={{ opacity: [0, 1, 0], y: 800 }}
+          transition={{ duration: 3, repeat: Infinity, ease: "linear", delay: 0.5 }}
+          className="absolute left-[30%] top-0 w-[1px] h-32 bg-gradient-to-b from-transparent via-lime to-transparent"
+        />
+        <motion.div
+          initial={{ opacity: 0, y: -200 }}
+          animate={{ opacity: [0, 1, 0], y: 800 }}
+          transition={{ duration: 4, repeat: Infinity, ease: "linear", delay: 1.2 }}
+          className="absolute left-[70%] top-0 w-[1px] h-32 bg-gradient-to-b from-transparent via-blue-500 to-transparent"
+        />
+
+        {/* Pulsing ambient blobs */}
+        <motion.div
+          animate={{ y: [0, -30, 0], scale: [1, 1.1, 1] }}
+          transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
+          className="absolute top-0 left-1/4 w-[500px] h-[500px] bg-lime/10 rounded-full blur-[120px]"
+        />
+        <motion.div
+          animate={{ y: [0, 40, 0], scale: [1, 1.2, 1] }}
+          transition={{ duration: 10, repeat: Infinity, ease: "easeInOut", delay: 1 }}
+          className="absolute bottom-0 right-1/4 w-[600px] h-[600px] bg-blue-500/10 rounded-full blur-[150px]"
+        />
+
+        {/* Breathing overlay */}
+        <motion.div
+          animate={{ opacity: [0.1, 0.2, 0.1] }}
+          transition={{ duration: 8, repeat: Infinity, ease: "linear" }}
+          className="absolute inset-0 bg-gradient-to-br from-lime/5 via-transparent to-blue-500/5"
+        />
       </div>
 
       <motion.div
@@ -52,7 +85,7 @@ export function HeroSection() {
           <h1 className="font-ui text-5xl sm:text-6xl md:text-7xl lg:text-[80px] font-semibold text-text-primary text-center leading-[1.08] tracking-tight">
             The App Store for{" "}
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-lime via-[#99ff00] to-blue-400">
-              Claude Code Agents
+              &ldquo;Skillfull&rdquo; Agents
             </span>
           </h1>
         </motion.div>
@@ -67,7 +100,7 @@ export function HeroSection() {
 
         {/* Terminal */}
         <motion.div variants={fadeUp}>
-          <TerminalAnimation commands={["internmarket install marketing-genius"]} />
+          <TerminalAnimation lines={[{ text: "internmarket install marketing-genius", isCommand: true }]} />
         </motion.div>
 
         {/* CTAs */}
@@ -79,13 +112,13 @@ export function HeroSection() {
             <Sparkles className="w-4 h-4" />
             Browse Agents
           </Link>
-          <Link
-            href="/dashboard"
+          <a
+            href="#creators"
             className="group flex items-center gap-2 font-mono text-sm text-text-primary px-6 py-3 rounded-md border border-bg-border bg-bg-surface hover:border-lime/50 transition-all"
           >
             <Upload className="w-4 h-4 text-text-muted group-hover:text-lime transition-colors" />
             Start Selling
-          </Link>
+          </a>
         </motion.div>
 
         {/* Trust bar */}

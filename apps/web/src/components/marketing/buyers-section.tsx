@@ -13,10 +13,12 @@ const BENEFITS = [
   { icon: RefreshCw, text: "Auto-updates keep you on latest version" },
 ];
 
-const TERMINAL_CMDS = [
-  "internmarket install marketing-genius",
-  "installing marketing-genius@1.2.0...",
-  "agent ready. run: claude --agent marketing-genius",
+const TERMINAL_LINES = [
+  { text: "internmarket install marketing-genius", isCommand: true },
+  { text: "resolving marketing-genius@1.2.0...", isCommand: false },
+  { text: "✓ verified signature (ed25519)", isCommand: false },
+  { text: "✓ installed to ~/.claude/agents/", isCommand: false },
+  { text: "claude --agent marketing-genius", isCommand: true },
 ];
 
 export function BuyersSection() {
@@ -42,7 +44,7 @@ export function BuyersSection() {
         {/* Two-column: terminal + benefits */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
           <motion.div variants={fadeUp}>
-            <TerminalAnimation commands={TERMINAL_CMDS} typingSpeed={35} pauseBetween={800} />
+            <TerminalAnimation lines={TERMINAL_LINES} typingSpeed={35} pauseBetween={800} />
           </motion.div>
 
           <motion.div variants={fadeUp} className="flex flex-col gap-5">
