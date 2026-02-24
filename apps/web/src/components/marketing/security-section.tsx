@@ -13,17 +13,17 @@ const PILLARS = [
   {
     icon: Box,
     title: "Sandboxed Execution",
-    desc: "Agents execute in isolated environments with no access beyond their declared scope.",
+    desc: "Interns execute in isolated environments with no access beyond their declared scope.",
   },
   {
     icon: Shield,
     title: "Granular Permissions",
-    desc: "Declare exactly what files, network, and tools an agent can touch. Nothing more.",
+    desc: "Declare exactly what files, network, and tools an intern can touch. Nothing more.",
   },
   {
     icon: Power,
     title: "Kill-Switch Control",
-    desc: "Revoke any agent instantly. One command to disable, one command to remove.",
+    desc: "Revoke any intern instantly. One command to disable, one command to remove.",
   },
 ];
 

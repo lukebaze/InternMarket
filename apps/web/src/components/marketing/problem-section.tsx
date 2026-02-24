@@ -7,18 +7,18 @@ import { stagger, fadeUp } from "./motion-variants";
 const PAINS = [
   {
     icon: Lock,
-    title: "Agents are trapped in local repos",
-    desc: "Great agents sit in private GitHub repos with no way to reach the developers who need them.",
+    title: "AI interns are trapped in local repos",
+    desc: "Great interns sit in private GitHub repos with no way to reach the developers who need them.",
   },
   {
     icon: ShieldOff,
-    title: "No way to verify what an agent does",
+    title: "No way to verify what an intern does",
     desc: "You're running untrusted code with full system access. There's no review, no audit, no safety net.",
   },
   {
     icon: CircleDollarSign,
     title: "Creators have no path to monetize",
-    desc: "Building agents is hard. Getting paid for them? Currently impossible without rolling your own infra.",
+    desc: "Building AI interns is hard. Getting paid for them? Currently impossible without rolling your own infra.",
   },
 ];
 

@@ -1,13 +1,12 @@
 import { agents, creators } from "@repo/db";
-import { eq, and, or, ilike, gte, lte, desc, asc, sql } from "drizzle-orm";
+import { eq, and, or, ilike, desc, asc, sql } from "drizzle-orm";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 
 export interface DiscoveryParams {
   q?: string;
   category?: string;
   trustTier?: string;
-  minPrice?: string;
-  maxPrice?: string;
+  tags?: string;
   sort?: string;
   order?: string;
   limit?: number;
@@ -15,10 +14,8 @@ export interface DiscoveryParams {
 }
 
 const SORT_COLUMNS = {
-  trustScore: agents.trustScore,
+  downloads: agents.downloads,
   ratingAvg: agents.ratingAvg,
-  totalCalls: agents.totalCalls,
-  pricePerCall: agents.pricePerCall,
   createdAt: agents.createdAt,
 } as const;
 
@@ -33,9 +30,8 @@ export async function buildDiscoveryQuery(db: NodePgDatabase<any>, params: Disco
     q,
     category,
     trustTier,
-    minPrice,
-    maxPrice,
-    sort = "trustScore",
+    tags,
+    sort = "downloads",
     order = "desc",
     limit = 20,
     offset = 0,
@@ -49,13 +45,18 @@ export async function buildDiscoveryQuery(db: NodePgDatabase<any>, params: Disco
   }
   if (category) conditions.push(eq(agents.category, category));
   if (trustTier) conditions.push(eq(agents.trustTier, trustTier));
-  if (minPrice) conditions.push(gte(agents.pricePerCall, minPrice));
-  if (maxPrice) conditions.push(lte(agents.pricePerCall, maxPrice));
+  if (tags) {
+    // Filter agents whose tags array overlaps with provided tags (comma-separated)
+    const tagList = tags.split(",").map((t) => t.trim()).filter(Boolean);
+    if (tagList.length > 0) {
+      const tagArray = `{${tagList.map((t) => `"${t}"`).join(",")}}`;
+      conditions.push(sql`${agents.tags} && ${tagArray}::text[]`);
+    }
+  }
 
   const whereClause = conditions.length > 1 ? and(...conditions) : conditions[0];
 
-  // Type-safe sort column mapping
-  const sortColumn = SORT_COLUMNS[sort as keyof typeof SORT_COLUMNS] ?? SORT_COLUMNS.trustScore;
+  const sortColumn = SORT_COLUMNS[sort as keyof typeof SORT_COLUMNS] ?? SORT_COLUMNS.downloads;
   const orderFn = order === "asc" ? asc(sortColumn) : desc(sortColumn);
 
   const rows = await db
@@ -65,15 +66,14 @@ export async function buildDiscoveryQuery(db: NodePgDatabase<any>, params: Disco
       name: agents.name,
       description: agents.description,
       category: agents.category,
-      pricePerCall: agents.pricePerCall,
-      trustTier: agents.trustTier,
-      trustScore: agents.trustScore,
+      tags: agents.tags,
+      currentVersion: agents.currentVersion,
+      downloads: agents.downloads,
       ratingAvg: agents.ratingAvg,
-      totalCalls: agents.totalCalls,
+      ratingCount: agents.ratingCount,
+      trustTier: agents.trustTier,
       status: agents.status,
-      tools: agents.tools,
-      creatorWallet: agents.creatorWallet,
-      uptime30d: agents.uptime30d,
+      iconUrl: agents.iconUrl,
       createdAt: agents.createdAt,
       creatorName: creators.displayName,
     })
@@ -84,7 +84,6 @@ export async function buildDiscoveryQuery(db: NodePgDatabase<any>, params: Disco
     .limit(limit)
     .offset(offset);
 
-  // Count total for pagination
   const countResult = await db
     .select({ count: sql<number>`COUNT(*)` })
     .from(agents)
@@ -92,11 +91,5 @@ export async function buildDiscoveryQuery(db: NodePgDatabase<any>, params: Disco
 
   const total = Number(countResult[0]?.count ?? 0);
 
-  const agentCards = rows.map((r) => ({
-    ...r,
-    toolCount: Array.isArray(r.tools) ? r.tools.length : 0,
-    tools: undefined, // omit raw tools from list response
-  }));
-
-  return { agents: agentCards, total };
+  return { agents: rows, total };
 }

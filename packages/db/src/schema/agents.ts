@@ -1,4 +1,5 @@
-import { pgTable, text, uuid, decimal, integer, timestamp, jsonb, index } from "drizzle-orm/pg-core";
+import { pgTable, text, uuid, decimal, integer, timestamp, index, numeric } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 import { creators } from "./creators";
 
 export const agents = pgTable(
@@ -12,24 +13,27 @@ export const agents = pgTable(
     name: text("name").notNull(),
     description: text("description").notNull(),
     category: text("category").notNull(),
-    mcpEndpoint: text("mcp_endpoint").notNull(),
-    creatorWallet: text("creator_wallet").notNull(),
-    pricePerCall: decimal("price_per_call", { precision: 10, scale: 6 }).notNull(),
-    agentCard: jsonb("agent_card"),
-    tools: jsonb("tools"),
+    tags: text("tags").array().default(sql`'{}'::text[]`),
+    currentVersion: text("current_version").notNull(),
+    packageUrl: text("package_url").notNull(),
+    packageSize: integer("package_size").notNull(),
+    readmeHtml: text("readme_html"),
+    iconUrl: text("icon_url"),
+    thumbnailUrl: text("thumbnail_url"),
+    downloads: integer("downloads").default(0),
     ratingAvg: decimal("rating_avg", { precision: 3, scale: 2 }).default("0"),
-    totalCalls: integer("total_calls").default(0),
-    status: text("status").notNull().default("active"),
-    trustScore: decimal("trust_score", { precision: 5, scale: 2 }).default("0"),
-    trustTier: text("trust_tier").default("new"),
-    uptime30d: decimal("uptime_30d", { precision: 5, scale: 2 }).default("0"),
-    successRate30d: decimal("success_rate_30d", { precision: 5, scale: 2 }).default("0"),
-    p95LatencyMs: integer("p95_latency_ms").default(0),
-    uniqueConsumers30d: integer("unique_consumers_30d").default(0),
-    healthCheckFailures: integer("health_check_failures").default(0),
-    healthCheckTotal: integer("health_check_total").default(0),
-    healthCheckPassed: integer("health_check_passed").default(0),
     ratingCount: integer("rating_count").default(0),
+    trustTier: text("trust_tier").default("new"),
+    status: text("status").notNull().default("active"),
+    // Pricing fields
+    price: numeric("price", { precision: 10, scale: 2 }),
+    pricingModel: text("pricing_model").default("free"), // free | one-time | subscription | enterprise
+    // Permissions the agent requires
+    permissions: text("permissions").array(),
+    // Verification lifecycle
+    verificationStatus: text("verification_status").default("pending"), // pending | scanning | verified | rejected
+    // Renamed from forkedFromId for clarity
+    remixedFromId: uuid("remixed_from_id"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
@@ -37,7 +41,7 @@ export const agents = pgTable(
     index("agents_creator_id_idx").on(table.creatorId),
     index("agents_status_idx").on(table.status),
     index("agents_status_category_idx").on(table.status, table.category),
-    index("agents_trust_score_idx").on(table.trustScore),
+    index("agents_slug_idx").on(table.slug),
   ]
 );
 

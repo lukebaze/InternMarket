@@ -20,11 +20,9 @@ const CATEGORIES: { value: AgentCategory | "all"; label: string }[] = [
 const TIERS = ["new", "bronze", "silver", "gold", "platinum"] as const;
 
 const SORT_OPTIONS = [
-  { value: "trust", label: "Trust Score" },
-  { value: "price_asc", label: "Price (Low)" },
-  { value: "price_desc", label: "Price (High)" },
+  { value: "popular", label: "Most Downloaded" },
+  { value: "rating", label: "Highest Rated" },
   { value: "newest", label: "Newest" },
-  { value: "popular", label: "Most Popular" },
 ];
 
 export function AgentSearchBar() {
@@ -35,8 +33,9 @@ export function AgentSearchBar() {
 
   const currentSearch = searchParams.get("search") ?? "";
   const currentCategory = searchParams.get("category") ?? "all";
-  const currentSort = searchParams.get("sort") ?? "trust";
+  const currentSort = searchParams.get("sort") ?? "popular";
   const currentTiers = searchParams.get("tier")?.split(",") ?? [];
+  const currentTags = searchParams.get("tags") ?? "";
 
   const updateParams = useCallback(
     (key: string, value: string) => {
@@ -78,7 +77,7 @@ export function AgentSearchBar() {
           <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
           <input
             type="text"
-            placeholder="Search agents by name or description..."
+            placeholder="Search interns by name or description..."
             defaultValue={currentSearch}
             onChange={(e) => handleSearchChange(e.target.value)}
             className="w-full pl-10 pr-4 py-2.5 bg-bg-surface border border-bg-border font-mono text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-text-muted transition-colors"
@@ -93,6 +92,20 @@ export function AgentSearchBar() {
             <option key={value} value={value}>{label}</option>
           ))}
         </select>
+      </div>
+
+      {/* Tags input */}
+      <div className="relative">
+        <input
+          type="text"
+          placeholder="Filter by tags (comma-separated, e.g. automation, python)"
+          defaultValue={currentTags}
+          onChange={(e) => {
+            clearTimeout(debounceRef.current);
+            debounceRef.current = setTimeout(() => updateParams("tags", e.target.value), 300);
+          }}
+          className="w-full px-4 py-2.5 bg-bg-surface border border-bg-border font-mono text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-text-muted transition-colors"
+        />
       </div>
 
       {/* Category chips */}

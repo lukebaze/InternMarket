@@ -2,11 +2,10 @@
 
 import type { Agent, AgentCategory, TrustTier } from "@repo/types";
 import { slugify } from "@/lib/utils";
-import { auth } from "@/lib/auth";
+import { auth } from "@clerk/nextjs/server";
 import { createNodeClient } from "@repo/db";
-import { agents } from "@repo/db";
-import { creators } from "@repo/db";
-import { eq, ilike, and, or, desc, asc, gte, lte, inArray } from "drizzle-orm";
+import { agents, creators } from "@repo/db";
+import { eq, ilike, and, or, desc, asc, inArray, sql } from "drizzle-orm";
 import { ensureCreator } from "./creator-actions";
 
 function getDb() {
@@ -15,16 +14,14 @@ function getDb() {
   return createNodeClient(url);
 }
 
-export type SortOption = "trust" | "price_asc" | "price_desc" | "newest" | "popular";
+export type SortOption = "newest" | "popular" | "rating";
 
 export interface GetAgentsParams {
   search?: string;
   category?: AgentCategory;
   trustTier?: TrustTier[];
-  priceMin?: string;
-  priceMax?: string;
   sort?: SortOption;
-  cursor?: string;
+  tags?: string[];
   limit?: number;
 }
 
@@ -36,28 +33,28 @@ export interface PaginatedAgents {
 export async function getAgents(params: GetAgentsParams = {}): Promise<PaginatedAgents> {
   try {
     const db = getDb();
-    const { search, category, trustTier, priceMin, priceMax, sort = "trust", limit = 12 } = params;
+    const { search, category, trustTier, sort = "popular", tags, limit = 12 } = params;
 
     const conditions = [];
 
-    // Search on both name and description
     if (search) {
       conditions.push(or(ilike(agents.name, `%${search}%`), ilike(agents.description, `%${search}%`)));
     }
     if (category) conditions.push(eq(agents.category, category));
     if (trustTier?.length) conditions.push(inArray(agents.trustTier, trustTier));
-    if (priceMin) conditions.push(gte(agents.pricePerCall, priceMin));
-    if (priceMax) conditions.push(lte(agents.pricePerCall, priceMax));
+    if (tags?.length) {
+      conditions.push(sql`${agents.tags} && ARRAY[${sql.join(tags.map((t) => sql`${t}`), sql`, `)}]::text[]`);
+    }
     conditions.push(eq(agents.status, "active"));
 
-    // Sort mapping
     const orderBy = {
-      trust: desc(agents.trustScore),
-      price_asc: asc(agents.pricePerCall),
-      price_desc: desc(agents.pricePerCall),
+      popular: desc(agents.downloads),
       newest: desc(agents.createdAt),
-      popular: desc(agents.totalCalls),
+      rating: desc(agents.ratingAvg),
     }[sort];
+
+    // suppress unused import warning for asc
+    void asc;
 
     const rows = await db
       .select()
@@ -76,13 +73,15 @@ export async function getAgents(params: GetAgentsParams = {}): Promise<Paginated
   }
 }
 
-export async function getAgentBySlug(slug: string): Promise<(Agent & { creator?: { displayName?: string | null; walletAddress: string } }) | null> {
+export async function getAgentBySlug(
+  slug: string,
+): Promise<(Agent & { creator?: { displayName?: string | null; clerkUserId: string } }) | null> {
   try {
     const db = getDb();
     const rows = await db
       .select({
         agent: agents,
-        creatorWallet: creators.walletAddress,
+        creatorClerkId: creators.clerkUserId,
         creatorDisplayName: creators.displayName,
       })
       .from(agents)
@@ -91,29 +90,32 @@ export async function getAgentBySlug(slug: string): Promise<(Agent & { creator?:
       .limit(1);
 
     if (!rows.length) return null;
-    const { agent, creatorWallet, creatorDisplayName } = rows[0];
+    const { agent, creatorClerkId, creatorDisplayName } = rows[0];
     return {
       ...(agent as unknown as Agent),
-      creator: { walletAddress: creatorWallet ?? "", displayName: creatorDisplayName },
+      creator: { clerkUserId: creatorClerkId ?? "", displayName: creatorDisplayName },
     };
   } catch {
     return null;
   }
 }
 
-export async function createAgent(formData: FormData): Promise<{ success: boolean; slug?: string; error?: string }> {
+export async function createAgent(
+  formData: FormData,
+): Promise<{ success: boolean; slug?: string; error?: string }> {
   try {
-    const session = await auth();
-    if (!session?.user) return { success: false, error: "Not authenticated" };
-
-    const walletAddress = (session.user as { address?: string }).address;
-    if (!walletAddress) return { success: false, error: "No wallet address" };
+    const { userId } = await auth();
+    if (!userId) return { success: false, error: "Not authenticated" };
 
     const db = getDb();
-    const creatorId = await ensureCreator(walletAddress);
+    const creatorId = await ensureCreator(userId);
 
     const name = formData.get("name") as string;
     const slug = slugify(name);
+    const version = (formData.get("version") as string) || "1.0.0";
+    const packageKey = formData.get("packageKey") as string;
+
+    if (!packageKey) return { success: false, error: "packageKey is required" };
 
     await db.insert(agents).values({
       slug,
@@ -121,9 +123,9 @@ export async function createAgent(formData: FormData): Promise<{ success: boolea
       name,
       description: formData.get("description") as string,
       category: formData.get("category") as AgentCategory,
-      mcpEndpoint: formData.get("mcpEndpoint") as string,
-      creatorWallet: walletAddress,
-      pricePerCall: formData.get("pricePerCall") as string,
+      currentVersion: version,
+      packageUrl: packageKey,
+      packageSize: 0,
       status: "active",
     });
 
@@ -133,16 +135,25 @@ export async function createAgent(formData: FormData): Promise<{ success: boolea
   }
 }
 
-export async function updateAgent(id: string, formData: FormData): Promise<{ success: boolean; error?: string }> {
+export async function updateAgent(
+  id: string,
+  formData: FormData,
+): Promise<{ success: boolean; error?: string }> {
   try {
-    const session = await auth();
-    if (!session?.user) return { success: false, error: "Not authenticated" };
+    const { userId } = await auth();
+    if (!userId) return { success: false, error: "Not authenticated" };
 
-    const walletAddress = (session.user as { address?: string }).address;
     const db = getDb();
 
-    const existing = await db.select().from(agents).where(eq(agents.id, id)).limit(1);
-    if (!existing.length || existing[0].creatorWallet !== walletAddress) {
+    // Ownership check via clerkUserId
+    const rows = await db
+      .select({ agentId: agents.id, ownerClerkId: creators.clerkUserId })
+      .from(agents)
+      .leftJoin(creators, eq(agents.creatorId, creators.id))
+      .where(eq(agents.id, id))
+      .limit(1);
+
+    if (!rows.length || rows[0].ownerClerkId !== userId) {
       return { success: false, error: "Not authorized" };
     }
 
@@ -150,8 +161,6 @@ export async function updateAgent(id: string, formData: FormData): Promise<{ suc
       name: formData.get("name") as string,
       description: formData.get("description") as string,
       category: formData.get("category") as AgentCategory,
-      mcpEndpoint: formData.get("mcpEndpoint") as string,
-      pricePerCall: formData.get("pricePerCall") as string,
       updatedAt: new Date(),
     }).where(eq(agents.id, id));
 
@@ -163,14 +172,19 @@ export async function updateAgent(id: string, formData: FormData): Promise<{ suc
 
 export async function deleteAgent(id: string): Promise<void> {
   try {
-    const session = await auth();
-    if (!session?.user) return;
+    const { userId } = await auth();
+    if (!userId) return;
 
-    const walletAddress = (session.user as { address?: string }).address;
     const db = getDb();
 
-    const existing = await db.select().from(agents).where(eq(agents.id, id)).limit(1);
-    if (!existing.length || existing[0].creatorWallet !== walletAddress) return;
+    const rows = await db
+      .select({ ownerClerkId: creators.clerkUserId })
+      .from(agents)
+      .leftJoin(creators, eq(agents.creatorId, creators.id))
+      .where(eq(agents.id, id))
+      .limit(1);
+
+    if (!rows.length || rows[0].ownerClerkId !== userId) return;
 
     await db.delete(agents).where(eq(agents.id, id));
   } catch {

@@ -1,13 +1,9 @@
 "use server";
-import { auth } from "@/lib/auth";
-import { createNodeClient } from "@repo/db";
-import { agents } from "@repo/db";
+
+import { auth } from "@clerk/nextjs/server";
+import { createNodeClient, agents, creators } from "@repo/db";
 import { eq } from "drizzle-orm";
-import {
-  checkRatingEligibility,
-  submitRating as submitRatingService,
-  listAgentRatings,
-} from "@/lib/rating-service";
+import { submitRating as submitRatingService, listAgentRatings } from "@/lib/rating-service";
 
 function getDb() {
   const url = process.env.DATABASE_URL;
@@ -17,17 +13,12 @@ function getDb() {
 
 /**
  * Server action: submit or update a rating.
- * Delegates to rating-service for canonical business logic:
- * - Requires completed transaction (anti-sybil)
- * - Upsert pattern (one rating per wallet per agent, updatable)
- * - Atomic ratingAvg + ratingCount recalculation
+ * Upsert pattern — one rating per userId per agent, updatable.
+ * Atomically recalculates ratingAvg + ratingCount.
  */
 export async function submitRating(agentId: string, score: number, review?: string) {
-  const session = await auth();
-  if (!(session?.user as { address?: string })?.address) {
-    throw new Error("Not authenticated");
-  }
-  const userWallet = (session!.user as { address: string }).address;
+  const { userId } = await auth();
+  if (!userId) throw new Error("Not authenticated");
 
   if (score < 1 || score > 5 || !Number.isInteger(score)) {
     throw new Error("Score must be an integer between 1 and 5");
@@ -35,12 +26,18 @@ export async function submitRating(agentId: string, score: number, review?: stri
 
   const db = getDb();
 
-  const { eligible, reason } = await checkRatingEligibility(db, agentId, userWallet);
-  if (!eligible) throw new Error(reason ?? "Not eligible to rate");
+  // Look up creator by clerkUserId
+  const [creator] = await db
+    .select({ id: creators.id })
+    .from(creators)
+    .where(eq(creators.clerkUserId, userId))
+    .limit(1);
+
+  if (!creator) throw new Error("Creator profile not found. Visit dashboard first.");
 
   await submitRatingService(db, {
     agentId,
-    userWallet,
+    userId: creator.id,
     score,
     review: review?.trim() || undefined,
   });

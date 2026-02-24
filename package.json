@@ -9,7 +9,8 @@
     "type-check": "turbo type-check",
     "db:generate": "pnpm --filter @repo/db drizzle-kit generate",
     "db:migrate": "pnpm --filter @repo/db drizzle-kit migrate",
-    "db:studio": "pnpm --filter @repo/db drizzle-kit studio"
+    "db:studio": "pnpm --filter @repo/db drizzle-kit studio",
+    "db:seed": "tsx packages/db/src/seed.ts"
   },
   "devDependencies": {
     "tsx": "^4.21.0",

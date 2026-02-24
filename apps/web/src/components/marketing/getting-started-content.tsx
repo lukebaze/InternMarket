@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-const TABS = ["Use Agents", "Sell Agents"] as const;
+const TABS = ["Use Interns", "Sell Interns"] as const;
 type Tab = (typeof TABS)[number];
 
 interface StepProps {
@@ -44,20 +44,20 @@ const BUYER_STEPS: StepProps[] = [
   },
   {
     num: 2,
-    title: "Browse agents",
+    title: "Browse interns",
     desc: "Search the marketplace from your terminal or visit /agents in the browser.",
     code: "internmarket search <keyword>",
   },
   {
     num: 3,
-    title: "Install an agent",
-    desc: "Install any agent with a single command. It downloads to your local environment.",
+    title: "Install an intern",
+    desc: "Install any intern with a single command. It downloads to your local environment.",
     code: "internmarket install <slug>",
   },
   {
     num: 4,
     title: "Use with Claude Code",
-    desc: "The agent is automatically available in your Claude Code session. No extra config needed.",
+    desc: "The intern is automatically available in your Claude Code session. No extra config needed.",
   },
 ];
 
@@ -65,24 +65,24 @@ const SELLER_STEPS: StepProps[] = [
   {
     num: 1,
     title: "Connect your wallet",
-    desc: "Authenticate with your Ethereum wallet to claim your creator profile.",
+    desc: "Sign in to claim your creator profile.",
     code: "internmarket login",
   },
   {
     num: 2,
     title: "Initialize your project",
-    desc: "Scaffold a new agent project with the required manifest file.",
+    desc: "Scaffold a new intern project with the required manifest file.",
     code: "internmarket init",
   },
   {
     num: 3,
-    title: "Build your agent",
+    title: "Build your intern",
     desc: "Create your CLAUDE.md, tools, and prompts. Any Claude Code skill works.",
   },
   {
     num: 4,
     title: "Package it",
-    desc: "Bundle your agent into a distributable .clawagent package.",
+    desc: "Bundle your intern into a distributable .internagent package.",
     code: "internmarket package",
   },
   {
@@ -94,8 +94,8 @@ const SELLER_STEPS: StepProps[] = [
 ];
 
 export function GettingStartedContent() {
-  const [activeTab, setActiveTab] = useState<Tab>("Use Agents");
-  const steps = activeTab === "Use Agents" ? BUYER_STEPS : SELLER_STEPS;
+  const [activeTab, setActiveTab] = useState<Tab>("Use Interns");
+  const steps = activeTab === "Use Interns" ? BUYER_STEPS : SELLER_STEPS;
 
   return (
     <div className="flex flex-col gap-8">
@@ -103,7 +103,7 @@ export function GettingStartedContent() {
       <div>
         <h1 className="font-ui text-3xl font-semibold text-text-primary mb-2">Getting Started</h1>
         <p className="font-mono text-sm text-text-tertiary">
-          Everything you need to install or publish Claude Code agents.
+          Everything you need to install or publish AI interns.
         </p>
       </div>
 

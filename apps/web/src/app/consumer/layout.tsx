@@ -1,4 +1,4 @@
-import { auth } from "@/lib/auth";
+import { auth } from "@clerk/nextjs/server";
 import { ConsumerSidebar } from "@/components/layout/consumer-sidebar";
 
 export default async function ConsumerLayout({
@@ -6,12 +6,11 @@ export default async function ConsumerLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const session = await auth();
-  const walletAddress = (session?.user as { address?: string })?.address;
+  const { userId } = await auth();
 
   return (
     <div className="flex h-[calc(100vh-3.5rem)]">
-      <ConsumerSidebar walletAddress={walletAddress} />
+      <ConsumerSidebar userId={userId ?? undefined} />
       <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
         {children}
       </div>

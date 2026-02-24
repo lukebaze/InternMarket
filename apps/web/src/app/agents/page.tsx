@@ -10,23 +10,21 @@ interface AgentCatalogPageProps {
     search?: string;
     category?: string;
     tier?: string;
-    priceMin?: string;
-    priceMax?: string;
     sort?: string;
+    tags?: string;
     cursor?: string;
   }>;
 }
 
-async function AgentResults({ search, category, trustTier, priceMin, priceMax, sort }: {
+async function AgentResults({ search, category, trustTier, sort, tags }: {
   search?: string;
   category?: AgentCategory;
   trustTier?: TrustTier[];
-  priceMin?: string;
-  priceMax?: string;
   sort?: SortOption;
+  tags?: string[];
 }) {
   const { agents, nextCursor } = await getAgents({
-    search, category, trustTier, priceMin, priceMax, sort, limit: 12,
+    search, category, trustTier, sort, tags, limit: 12,
   });
   return <AgentGrid agents={agents} nextCursor={nextCursor} />;
 }
@@ -36,13 +34,14 @@ export default async function AgentCatalogPage({ searchParams }: AgentCatalogPag
   const search = params.search;
   const category = params.category as AgentCategory | undefined;
   const trustTier = params.tier?.split(",").filter(Boolean) as TrustTier[] | undefined;
-  const sort = (params.sort as SortOption) || undefined;
+  const sort = (params.sort as SortOption) || "popular";
+  const tags = params.tags?.split(",").map((t) => t.trim()).filter(Boolean);
 
   return (
     <div className="px-12 py-8">
       <div className="mb-6">
-        <h1 className="font-ui text-2xl font-bold text-text-primary mb-1">Browse Agents</h1>
-        <p className="font-mono text-sm text-text-tertiary">Discover AI agents for every use case</p>
+        <h1 className="font-ui text-2xl font-bold text-text-primary mb-1">Browse Interns</h1>
+        <p className="font-mono text-sm text-text-tertiary">Discover AI interns for every use case</p>
       </div>
 
       <div className="mb-6">
@@ -56,9 +55,8 @@ export default async function AgentCatalogPage({ searchParams }: AgentCatalogPag
           search={search}
           category={category}
           trustTier={trustTier}
-          priceMin={params.priceMin}
-          priceMax={params.priceMax}
           sort={sort}
+          tags={tags}
         />
       </Suspense>
     </div>

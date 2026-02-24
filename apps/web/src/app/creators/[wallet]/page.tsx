@@ -3,7 +3,6 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { getCreatorProfile } from "@/lib/actions/creator-actions";
-import { buildCreatorOgMetadata } from "@/lib/og-metadata";
 import { CreatorProfileHeader } from "@/components/creators/creator-profile-header";
 import { CreatorAgentList } from "@/components/creators/creator-agent-list";
 
@@ -15,13 +14,10 @@ export async function generateMetadata({ params }: CreatorPageProps): Promise<Me
   const { wallet } = await params;
   const profile = await getCreatorProfile(wallet);
   if (!profile) return { title: "Creator Not Found" };
-  return buildCreatorOgMetadata({
-    displayName: profile.creator.displayName,
-    walletAddress: profile.creator.walletAddress,
-    totalAgents: profile.aggregates.totalAgents,
-    totalCalls: profile.aggregates.totalCalls,
-    avgTrustScore: profile.aggregates.avgTrustScore,
-  });
+  return {
+    title: `${profile.creator.displayName ?? wallet} — InternMarket`,
+    description: profile.creator.bio ?? `${profile.aggregates.totalAgents} agents published`,
+  };
 }
 
 export default async function CreatorProfilePage({ params }: CreatorPageProps) {
@@ -43,15 +39,14 @@ export default async function CreatorProfilePage({ params }: CreatorPageProps) {
 
       <CreatorProfileHeader
         displayName={creator.displayName}
-        walletAddress={creator.walletAddress}
+        clerkUserId={creator.clerkUserId}
         bio={creator.bio}
         totalAgents={aggregates.totalAgents}
-        totalCalls={aggregates.totalCalls}
-        totalRevenue={creator.totalRevenue}
-        avgTrustScore={aggregates.avgTrustScore}
+        totalDownloads={aggregates.totalDownloads}
+        avgRating={aggregates.avgRating}
       />
 
-      <CreatorAgentList agents={agents} />
+      <CreatorAgentList agents={agents as unknown as import("@repo/types").Agent[]} />
     </div>
   );
 }

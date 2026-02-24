@@ -9,8 +9,8 @@ const PERIODS = ["7D", "30D", "90D"] as const;
 type Period = typeof PERIODS[number];
 
 const DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-const CALLS_DATA = [6200, 7800, 5400, 8900, 7200, 6100, 6231];
-const REVENUE_DATA = [420, 680, 310, 920, 570, 480, 163];
+const DOWNLOADS_DATA = [620, 780, 540, 890, 720, 610, 623];
+const RATINGS_DATA = [42, 68, 31, 92, 57, 48, 16];
 
 export default function AnalyticsPage() {
   const [period, setPeriod] = useState<Period>("7D");
@@ -40,8 +40,8 @@ export default function AnalyticsPage() {
         <AnalyticsMetricCards />
 
         <div className="flex gap-4">
-          <AnalyticsBarChart title="CALLS OVER TIME" bars={CALLS_DATA} labels={DAY_LABELS} />
-          <AnalyticsBarChart title="REVENUE OVER TIME" bars={REVENUE_DATA} labels={DAY_LABELS} />
+          <AnalyticsBarChart title="DOWNLOADS OVER TIME" bars={DOWNLOADS_DATA} labels={DAY_LABELS} />
+          <AnalyticsBarChart title="RATINGS OVER TIME" bars={RATINGS_DATA} labels={DAY_LABELS} />
         </div>
 
         <AnalyticsAgentPerformanceTable />

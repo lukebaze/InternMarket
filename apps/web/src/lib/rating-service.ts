@@ -1,40 +1,16 @@
-import { agents, ratings, transactions } from "@repo/db";
+import { agents, ratings } from "@repo/db";
 import { eq, and, sql } from "drizzle-orm";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Db = NodePgDatabase<any>;
 
-/** Check if wallet has at least one completed transaction with this agent */
-export async function checkRatingEligibility(
-  db: Db,
-  agentId: string,
-  wallet: string,
-): Promise<{ eligible: boolean; reason?: string }> {
-  const txRows = await db
-    .select({ id: transactions.id })
-    .from(transactions)
-    .where(
-      and(
-        eq(transactions.agentId, agentId),
-        eq(transactions.consumerWallet, wallet),
-        eq(transactions.status, "completed"),
-      ),
-    )
-    .limit(1);
-
-  if (!txRows.length) {
-    return { eligible: false, reason: "Must complete a transaction before rating" };
-  }
-  return { eligible: true };
-}
-
-/** Get existing rating for this wallet + agent pair */
-export async function getExistingRating(db: Db, agentId: string, wallet: string) {
+/** Get existing rating for this userId + agent pair */
+export async function getExistingRating(db: Db, agentId: string, userId: string) {
   const rows = await db
     .select()
     .from(ratings)
-    .where(and(eq(ratings.agentId, agentId), eq(ratings.userWallet, wallet)))
+    .where(and(eq(ratings.agentId, agentId), eq(ratings.userId, userId)))
     .limit(1);
   return rows[0] ?? null;
 }
@@ -42,16 +18,15 @@ export async function getExistingRating(db: Db, agentId: string, wallet: string)
 /** Upsert rating + recalculate agent ratingAvg atomically */
 export async function submitRating(
   db: Db,
-  params: { agentId: string; userWallet: string; score: number; review?: string },
+  params: { agentId: string; userId: string; score: number; review?: string },
 ) {
-  const { agentId, userWallet, score, review } = params;
+  const { agentId, userId, score, review } = params;
 
-  // Upsert: insert or update on conflict (agent_id, user_wallet)
   const [rating] = await db
     .insert(ratings)
-    .values({ agentId, userWallet, score, review: review ?? null })
+    .values({ agentId, userId, score, review: review ?? null })
     .onConflictDoUpdate({
-      target: [ratings.agentId, ratings.userWallet],
+      target: [ratings.agentId, ratings.userId],
       set: { score, review: review ?? null, createdAt: new Date() },
     })
     .returning();
@@ -101,15 +76,14 @@ export async function listAgentRatings(
       id: r.id,
       score: r.score,
       review: r.review,
-      userWallet: truncateWallet(r.userWallet),
+      userId: truncateId(r.userId),
       createdAt: r.createdAt.toISOString(),
     })),
     total: Number(countResult?.count ?? 0),
   };
 }
 
-/** Truncate wallet for privacy: 0x1234...abcd */
-function truncateWallet(wallet: string): string {
-  if (wallet.length <= 10) return wallet;
-  return `${wallet.slice(0, 6)}...${wallet.slice(-4)}`;
+/** Truncate UUID for privacy: first 8 chars */
+function truncateId(id: string): string {
+  return id.slice(0, 8) + "...";
 }

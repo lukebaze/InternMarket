@@ -19,7 +19,7 @@ const db = createNodeClient(DATABASE_URL);
 async function seed() {
   console.log("Seeding InternMarket database...\n");
 
-  // 1. Create demo creators (idempotent on walletAddress)
+  // 1. Create demo creators (idempotent on clerkUserId)
   const insertedCreators = await db
     .insert(creators)
     .values([...CREATORS_DATA])
@@ -31,9 +31,9 @@ async function seed() {
     ? insertedCreators
     : await db.query.creators.findMany();
 
-  const alice = allCreators.find((c) => c.walletAddress === CREATORS_DATA[0].walletAddress)!;
-  const bob = allCreators.find((c) => c.walletAddress === CREATORS_DATA[1].walletAddress)!;
-  const carol = allCreators.find((c) => c.walletAddress === CREATORS_DATA[2].walletAddress)!;
+  const alice = allCreators.find((c) => c.clerkUserId === CREATORS_DATA[0].clerkUserId)!;
+  const bob = allCreators.find((c) => c.clerkUserId === CREATORS_DATA[1].clerkUserId)!;
+  const carol = allCreators.find((c) => c.clerkUserId === CREATORS_DATA[2].clerkUserId)!;
   console.log(`Creators ready: ${allCreators.length}`);
 
   // 2. Create demo agents (idempotent on slug)

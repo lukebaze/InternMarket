@@ -1,4 +1,4 @@
-import { pgTable, text, uuid, integer, timestamp, index, uniqueIndex } from "drizzle-orm/pg-core";
+import { pgTable, uuid, integer, text, timestamp, index, uniqueIndex } from "drizzle-orm/pg-core";
 import { agents } from "./agents";
 
 export const ratings = pgTable(
@@ -8,14 +8,14 @@ export const ratings = pgTable(
     agentId: uuid("agent_id")
       .references(() => agents.id, { onDelete: "cascade" })
       .notNull(),
-    userWallet: text("user_wallet").notNull(),
+    userId: uuid("user_id").notNull(),
     score: integer("score").notNull(),
     review: text("review"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (table) => [
     index("ratings_agent_id_idx").on(table.agentId),
-    uniqueIndex("ratings_agent_user_unique").on(table.agentId, table.userWallet),
+    uniqueIndex("ratings_agent_user_unique").on(table.agentId, table.userId),
   ]
 );
 

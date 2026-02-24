@@ -2,30 +2,26 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { cn, truncateAddress } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 import {
   LayoutDashboard,
   Bot,
-  Receipt,
   TrendingUp,
-  Key,
   Settings,
 } from "lucide-react";
 
 const SIDEBAR_LINKS = [
   { href: "/dashboard", label: "Overview", icon: LayoutDashboard },
-  { href: "/dashboard/agents", label: "My Agents", icon: Bot },
-  { href: "/dashboard/transactions", label: "Transactions", icon: Receipt },
+  { href: "/dashboard/agents", label: "My Interns", icon: Bot },
   { href: "/dashboard/analytics", label: "Analytics", icon: TrendingUp },
-  { href: "/dashboard/api-keys", label: "API Keys", icon: Key },
   { href: "/dashboard/settings", label: "Settings", icon: Settings },
 ];
 
 interface DashboardSidebarProps {
-  walletAddress?: string;
+  userId?: string;
 }
 
-export function DashboardSidebar({ walletAddress }: DashboardSidebarProps) {
+export function DashboardSidebar({ userId }: DashboardSidebarProps) {
   const pathname = usePathname();
 
   return (
@@ -63,20 +59,18 @@ export function DashboardSidebar({ walletAddress }: DashboardSidebarProps) {
         })}
       </nav>
 
-      {/* Wallet display at bottom */}
-      {walletAddress && (
+      {/* User indicator at bottom */}
+      {userId && (
         <div className="border-t border-bg-border px-5 py-4">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 bg-bg-border flex items-center justify-center">
               <span className="text-text-muted text-xs font-mono">
-                {walletAddress.slice(2, 4).toUpperCase()}
+                {userId.slice(-4).toUpperCase()}
               </span>
             </div>
             <div>
-              <p className="font-mono text-xs text-text-primary">
-                {truncateAddress(walletAddress)}
-              </p>
-              <p className="font-mono text-[10px] text-text-muted">Creator</p>
+              <p className="font-mono text-xs text-text-primary">Creator</p>
+              <p className="font-mono text-[10px] text-text-muted">Signed in</p>
             </div>
           </div>
         </div>

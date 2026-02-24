@@ -14,10 +14,6 @@
     },
     "type-check": {
       "dependsOn": ["^build"]
-    },
-    "@repo/gateway#build": {
-      "dependsOn": ["^build"],
-      "outputs": []
     }
   }
 }

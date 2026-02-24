@@ -1,13 +1,8 @@
 "use client";
 
 import { Search } from "lucide-react";
-
-const METRICS = [
-  { label: "TOTAL SPENT", value: "$12.40", change: "↑8.2%" },
-  { label: "API CALLS", value: "1,247", change: "↑23.1%" },
-  { label: "AGENTS USED", value: "8", change: "↑2 new" },
-  { label: "AVG COST/CALL", value: "$0.009", change: "↓5.3%" },
-];
+import Link from "next/link";
+import { formatDownloads } from "@/lib/utils";
 
 const CATEGORY_STYLES: Record<string, { text: string; bg: string }> = {
   marketing: { text: "text-lime", bg: "bg-[#BFFF0015]" },
@@ -17,26 +12,36 @@ const CATEGORY_STYLES: Record<string, { text: string; bg: string }> = {
   social: { text: "text-purple-400", bg: "bg-[#A855F715]" },
 };
 
-const RECENT_USAGE = [
-  { agent: "SEO Optimizer Pro", category: "marketing", cost: "$0.10", calls: 142 },
-  { agent: "Content Writer AI", category: "writing", cost: "$0.05", calls: 89 },
-  { agent: "Trade Analyzer", category: "finance", cost: "$0.08", calls: 45 },
-  { agent: "Code Review Bot", category: "coding", cost: "$0.15", calls: 31 },
-  { agent: "Social Media Agent", category: "social", cost: "$0.03", calls: 28 },
+// Placeholder data — replace with real API call when consumer download history endpoint is ready
+const DOWNLOADED_AGENTS = [
+  { slug: "seo-optimizer-pro", name: "SEO Optimizer Pro", category: "marketing", version: "1.2.0", downloads: 12500 },
+  { slug: "content-writer-ai", name: "Content Writer AI", category: "writing", version: "2.0.1", downloads: 8900 },
+  { slug: "trade-analyzer", name: "Trade Analyzer", category: "finance", version: "1.0.5", downloads: 4500 },
+  { slug: "code-review-bot", name: "Code Review Bot", category: "coding", version: "3.1.2", downloads: 31200 },
+  { slug: "social-media-agent", name: "Social Media Agent", category: "social", version: "1.5.0", downloads: 2800 },
 ];
 
-export default function ConsumerDashboardPage() {
+const METRICS = [
+  { label: "AGENTS INSTALLED", value: String(DOWNLOADED_AGENTS.length) },
+  { label: "LATEST INSTALL", value: DOWNLOADED_AGENTS[0]?.name ?? "—" },
+  { label: "MOST POPULAR", value: "Code Review Bot" },
+  { label: "CATEGORIES USED", value: "5" },
+];
+
+export default function ConsumerDownloadsPage() {
   return (
     <>
       {/* Top bar */}
       <div className="flex items-center justify-between h-14 px-8 border-b border-bg-border shrink-0">
         <h1 className="font-ui text-base font-semibold text-text-primary">
-          Consumer Dashboard
+          My Downloads
         </h1>
-        <button className="flex items-center gap-2 border border-bg-border px-3 py-1.5 font-mono text-xs text-text-secondary hover:text-text-primary transition-colors">
-          <Search className="w-3.5 h-3.5" />
-          Browse Agents
-        </button>
+        <Link href="/agents">
+          <button className="flex items-center gap-2 border border-bg-border px-3 py-1.5 font-mono text-xs text-text-secondary hover:text-text-primary transition-colors">
+            <Search className="w-3.5 h-3.5" />
+            Browse Agents
+          </button>
+        </Link>
       </div>
 
       {/* Content */}
@@ -49,32 +54,23 @@ export default function ConsumerDashboardPage() {
               className="flex-1 bg-bg-surface p-6 border border-bg-border flex flex-col gap-2"
             >
               <p className="font-mono text-xs text-text-tertiary">{m.label}</p>
-              <p className="font-ui text-2xl font-semibold text-text-primary">
+              <p className="font-ui text-xl font-semibold text-text-primary truncate">
                 {m.value}
               </p>
-              <p className="font-mono text-[10px] text-lime">{m.change}</p>
             </div>
           ))}
         </div>
 
-        {/* Recent Usage */}
+        {/* Downloaded agents list */}
         <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <h2 className="font-ui text-sm font-semibold text-text-primary">
-              Recent Usage
-            </h2>
-            <a
-              href="/consumer/usage"
-              className="font-mono text-[11px] text-text-tertiary hover:text-text-secondary transition-colors"
-            >
-              View All →
-            </a>
-          </div>
+          <h2 className="font-ui text-sm font-semibold text-text-primary">
+            Installed Agents
+          </h2>
 
           <div className="border border-bg-border">
             {/* Table header */}
             <div className="grid grid-cols-4 bg-bg-surface px-5 py-2.5 border-b border-bg-border">
-              {["AGENT", "CATEGORY", "COST", "CALLS"].map((col) => (
+              {["AGENT", "CATEGORY", "VERSION", "TOTAL DOWNLOADS"].map((col) => (
                 <p key={col} className="font-mono text-[10px] font-bold text-text-muted tracking-wider">
                   {col}
                 </p>
@@ -82,25 +78,26 @@ export default function ConsumerDashboardPage() {
             </div>
 
             {/* Rows */}
-            {RECENT_USAGE.map((row, i) => {
+            {DOWNLOADED_AGENTS.map((row, i) => {
               const style = CATEGORY_STYLES[row.category] ?? {
                 text: "text-text-tertiary",
                 bg: "bg-[#ffffff10]",
               };
               return (
-                <div
+                <Link
                   key={i}
+                  href={`/agents/${row.slug}`}
                   className="grid grid-cols-4 px-5 py-3 border-b border-bg-border last:border-b-0 hover:bg-bg-surface transition-colors"
                 >
-                  <p className="font-mono text-xs text-text-primary">{row.agent}</p>
+                  <p className="font-mono text-xs text-text-primary">{row.name}</p>
                   <span
                     className={`inline-flex items-center self-center rounded px-2 py-0.5 text-[9px] font-bold ${style.text} ${style.bg} w-fit`}
                   >
                     {row.category}
                   </span>
-                  <p className="font-mono text-xs text-text-secondary">{row.cost}</p>
-                  <p className="font-mono text-xs text-text-secondary">{row.calls}</p>
-                </div>
+                  <p className="font-mono text-xs text-text-secondary">{row.version}</p>
+                  <p className="font-mono text-xs text-text-secondary">{formatDownloads(row.downloads)}</p>
+                </Link>
               );
             })}
           </div>

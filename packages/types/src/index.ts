@@ -1,4 +1,4 @@
-// Agent marketplace shared types
+// AI intern package marketplace shared types
 
 export type AgentCategory =
   | "marketing"
@@ -7,29 +7,29 @@ export type AgentCategory =
   | "coding"
   | "pm"
   | "trading"
-  | "social";
+  | "social"
+  | "devops"
+  | "data"
+  | "design";
 
-export type AgentStatus = "active" | "paused" | "under_review";
-export type TransactionStatus = "pending" | "completed" | "failed" | "refunded";
-export type TrustTier = "new" | "bronze" | "silver" | "gold" | "platinum";
-
-export interface AgentTool {
-  name: string;
-  description: string;
-}
-
-export interface AgentCard {
-  // Raw MCP Registry metadata - flexible structure
-  [key: string]: unknown;
-}
+export type AgentStatus = "active" | "under_review" | "suspended";
+export type TrustTier = "new" | "bronze" | "silver" | "gold";
+export type PricingModel = "free" | "one-time" | "subscription" | "enterprise";
+export type VerificationStatus = "pending" | "scanning" | "verified" | "rejected";
 
 export interface Creator {
   id: string;
-  walletAddress: string;
-  displayName: string;
+  clerkUserId: string;
+  email: string | null;
+  stripeConnectId: string | null;
+  // Legacy/optional — may be null for Clerk-only creators
+  walletAddress: string | null;
+  displayName: string | null;
   avatarUrl: string | null;
   bio: string | null;
-  totalRevenue: string; // decimal as string
+  githubUsername: string | null;
+  githubId: string | null;
+  totalDownloads: number;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -41,65 +41,82 @@ export interface Agent {
   name: string;
   description: string;
   category: AgentCategory;
-  mcpEndpoint: string;
-  creatorWallet: string;
-  pricePerCall: string;
-  agentCard: AgentCard | null;
-  tools: AgentTool[] | null;
+  tags: string[];
+  currentVersion: string;
+  packageUrl: string;
+  packageSize: number;
+  readmeHtml: string | null;
+  iconUrl: string | null;
+  thumbnailUrl: string | null;
+  downloads: number;
   ratingAvg: string;
-  totalCalls: number;
-  status: AgentStatus;
-  trustScore: string;
+  ratingCount: number;
   trustTier: TrustTier;
-  uptime30d: string;
-  successRate30d: string;
-  p95LatencyMs: number;
-  uniqueConsumers30d: number;
-  healthCheckFailures: number;
+  status: AgentStatus;
+  // Pricing
+  price: string | null;
+  pricingModel: string;
+  permissions: string[] | null;
+  verificationStatus: string;
+  // Renamed from forkedFromId
+  remixedFromId: string | null;
   createdAt: Date;
   updatedAt: Date;
 }
 
-export interface Transaction {
+export interface AgentVersion {
   id: string;
   agentId: string;
-  consumerWallet: string;
-  amount: string;
-  platformFee: string;
-  creatorPayout: string;
-  x402PaymentHash: string | null;
-  status: TransactionStatus;
+  version: string;
+  packageUrl: string;
+  packageSize: number;
+  sha256Hash: string;
+  changelog: string | null;
+  downloads: number;
+  createdAt: Date;
+}
+
+export interface Download {
+  id: string;
+  agentId: string;
+  versionId: string | null;
+  userId: string | null;
+  ipHash: string;
+  version: string;
   createdAt: Date;
 }
 
 export interface Rating {
   id: string;
   agentId: string;
-  userWallet: string;
+  userId: string;
   score: number;
   review: string | null;
   createdAt: Date;
 }
 
-export interface AgentMetric {
+export interface Purchase {
   id: string;
   agentId: string;
-  timestamp: Date;
-  totalRequests: number;
-  successfulRequests: number;
-  failedRequests: number;
-  avgLatencyMs: number;
-  p95LatencyMs: number;
-  uniqueConsumers: number;
+  buyerClerkId: string;
+  stripePaymentIntentId: string | null;
+  amount: string | null;
+  platformFee: string | null;
+  creatorPayout: string | null;
+  pricingModel: string | null;
+  status: string;
+  createdAt: Date;
 }
 
-export interface AgentShowcase {
-  id: string;
-  agentId: string;
-  title: string;
+// Package manifest (from .internagent/manifest.json)
+export interface PackageManifest {
+  name: string;
+  version: string;
+  slug: string;
+  author: { name: string; wallet?: string; github?: string };
   description: string;
-  inputExample: string;
-  outputExample: string;
-  sortOrder: number;
-  createdAt: Date;
+  category: AgentCategory;
+  tags: string[];
+  permissions: string[];
+  compatibleClaude: string;
 }

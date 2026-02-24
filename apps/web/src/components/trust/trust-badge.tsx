@@ -6,7 +6,6 @@ const TIER_CONFIG: Record<TrustTier, { label: string; className: string }> = {
   bronze: { label: "Bronze", className: "bg-amber-900/30 text-amber-400" },
   silver: { label: "Silver", className: "bg-gray-700/30 text-gray-300" },
   gold: { label: "Gold", className: "bg-yellow-900/30 text-yellow-400" },
-  platinum: { label: "Platinum", className: "bg-lime/20 text-lime" },
 };
 
 interface TrustBadgeProps {

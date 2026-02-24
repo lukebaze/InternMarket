@@ -7,14 +7,14 @@ import { stagger, fadeUp } from "./motion-variants";
 const STEPS = [
   { icon: Package, title: "Package", desc: "Bundle your CLAUDE.md, tools, and prompts" },
   { icon: Upload, title: "Publish", desc: "Push to the registry with one command" },
-  { icon: DollarSign, title: "Price", desc: "Set per-call, subscription, or free tier" },
-  { icon: TrendingUp, title: "Profit", desc: "Earn on every install and API call" },
+  { icon: DollarSign, title: "Price", desc: "Set one-time, subscription, or tips" },
+  { icon: TrendingUp, title: "Profit", desc: "Earn on every install and subscription" },
 ];
 
 const MODELS = [
-  { title: "Per-Call", desc: "Charge per invocation. Best for utility agents." },
+  { title: "One-Time", desc: "Charge per install. Best for utility interns." },
   { title: "Subscription", desc: "Monthly access. Best for premium toolkits." },
-  { title: "Freemium", desc: "Free tier + paid features. Best for growth." },
+  { title: "Tips", desc: "Let users tip for great interns. Best for community." },
 ];
 
 export function CreatorsSection() {
@@ -33,13 +33,13 @@ export function CreatorsSection() {
             For Creators
           </span>
           <h2 className="font-ui text-3xl md:text-4xl font-semibold text-text-primary max-w-xl">
-            You already built the best agent. Now let it earn.
+            You already built the best intern. Now let it earn.
           </h2>
         </motion.div>
 
         {/* Vision text */}
         <motion.p variants={fadeUp} className="font-mono text-sm text-text-secondary max-w-xl">
-          Join a growing community of creators building the future of AI agent distribution.
+          Join a growing community of creators building the future of AI intern distribution.
         </motion.p>
 
         {/* 4-step process */}
@@ -85,7 +85,7 @@ export function CreatorsSection() {
           <Quote className="w-5 h-5 text-lime/60 shrink-0 mt-0.5" />
           <div className="flex flex-col gap-2">
             <p className="font-mono text-xs text-text-secondary leading-relaxed">
-              &ldquo;Published my agent on Monday, had 200 installs by Friday. The distribution
+              &ldquo;Published my intern on Monday, had 200 installs by Friday. The distribution
               problem is finally solved.&rdquo;
             </p>
             <p className="font-mono text-[11px] text-text-muted">

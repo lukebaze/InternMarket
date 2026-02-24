@@ -10,10 +10,11 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
-    "@auth/core": "^0.34.3",
-    "@rainbow-me/rainbowkit": "^2.2.10",
+    "@clerk/nextjs": "^6.38.2",
+    "@clerk/themes": "^2.4.55",
     "@repo/db": "workspace:*",
     "@repo/types": "workspace:*",
+    "@supabase/supabase-js": "^2.97.0",
     "@tabler/icons-react": "^3.37.1",
     "@tanstack/react-query": "^5.90.21",
     "class-variance-authority": "^0.7.1",
@@ -22,14 +23,10 @@
     "framer-motion": "^12.34.3",
     "lucide-react": "^0.575.0",
     "next": "15.1.7",
-    "next-auth": "5.0.0-beta.30",
     "radix-ui": "^1.4.3",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "siwe": "^3.0.0",
-    "tailwind-merge": "^3.5.0",
-    "viem": "^2.46.2",
-    "wagmi": "^2.19.5"
+    "tailwind-merge": "^3.5.0"
   },
   "devDependencies": {
     "@repo/tsconfig": "workspace:*",

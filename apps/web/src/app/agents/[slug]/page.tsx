@@ -1,19 +1,18 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
-import { auth } from "@/lib/auth";
+import { ArrowLeft, Download, Package } from "lucide-react";
+import { auth } from "@clerk/nextjs/server";
 import { getAgentBySlug } from "@/lib/actions/agent-actions";
 import { getAgentRatings } from "@/lib/actions/rating-actions";
 import { AgentRating } from "@/components/agents/agent-rating";
-import { AgentToolsList } from "@/components/agents/agent-tools-list";
 import { RatingForm } from "@/components/agents/rating-form";
 import { VerifiedBadge } from "@/components/agents/verified-badge";
 import { TrustBadge } from "@/components/trust/trust-badge";
-import { TrustScoreDisplay } from "@/components/trust/trust-score-display";
-import { truncateAddress, formatUSDC } from "@/lib/utils";
-import { buildAgentOgMetadata } from "@/lib/og-metadata";
-import type { AgentTool, TrustTier } from "@repo/types";
+import { InstallCommand } from "@/components/agents/install-command";
+import { ReadmePreview } from "@/components/agents/readme-preview";
+import { truncateAddress, formatDownloads, formatPackageSize } from "@/lib/utils";
+import type { TrustTier } from "@repo/types";
 
 interface AgentDetailPageProps {
   params: Promise<{ slug: string }>;
@@ -22,16 +21,11 @@ interface AgentDetailPageProps {
 export async function generateMetadata({ params }: AgentDetailPageProps): Promise<Metadata> {
   const { slug } = await params;
   const agent = await getAgentBySlug(slug);
-  if (!agent) return { title: "Agent Not Found" };
-  return buildAgentOgMetadata({
-    name: agent.name,
-    slug: agent.slug,
+  if (!agent) return { title: "Intern Not Found" };
+  return {
+    title: `${agent.name} — InternMarket`,
     description: agent.description,
-    category: agent.category,
-    trustTier: agent.trustTier,
-    trustScore: agent.trustScore,
-    pricePerCall: agent.pricePerCall,
-  });
+  };
 }
 
 function StarDisplay({ score }: { score: number }) {
@@ -45,18 +39,15 @@ function StarDisplay({ score }: { score: number }) {
 
 export default async function AgentDetailPage({ params }: AgentDetailPageProps) {
   const { slug } = await params;
-  const [agent, session] = await Promise.all([getAgentBySlug(slug), auth()]);
+  const [agent, { userId }] = await Promise.all([getAgentBySlug(slug), auth()]);
   if (!agent) notFound();
 
   const reviews = await getAgentRatings(agent.id);
-  const isAuthenticated = !!(session?.user as { address?: string })?.address;
-
-  const tools = (agent.tools ?? []) as AgentTool[];
-  const gatewayUrl = `${process.env.NEXT_PUBLIC_GATEWAY_URL ?? "https://gateway.interns.market"}/agents/${agent.slug}`;
+  const isAuthenticated = !!userId;
+  const downloadUrl = `/api/agents/${agent.slug}/download`;
 
   return (
     <div className="px-12 py-8">
-      {/* Back link */}
       <Link href="/agents" className="inline-flex items-center gap-2 font-mono text-xs text-text-muted hover:text-text-secondary mb-5">
         <ArrowLeft className="w-3.5 h-3.5" />
         Back to Catalog
@@ -69,13 +60,15 @@ export default async function AgentDetailPage({ params }: AgentDetailPageProps) 
             {agent.category}
           </span>
           <TrustBadge tier={agent.trustTier as TrustTier} />
-          <VerifiedBadge totalCalls={agent.totalCalls} status={agent.status} trustTier={agent.trustTier} />
+          <VerifiedBadge verificationStatus={agent.verificationStatus} />
         </div>
         <h1 className="font-ui text-2xl font-bold text-text-primary mb-2">{agent.name}</h1>
-        <div className="flex items-center gap-4">
-          <AgentRating rating={agent.ratingAvg} totalCalls={agent.totalCalls} />
-          <TrustScoreDisplay score={agent.trustScore} tier={agent.trustTier as TrustTier} />
+        <div className="flex items-center gap-4 mb-4">
+          <AgentRating rating={agent.ratingAvg} ratingCount={agent.ratingCount} />
+          <span className="font-mono text-xs text-text-muted">v{agent.currentVersion}</span>
+          <span className="font-mono text-xs text-text-muted">{formatDownloads(agent.downloads ?? 0)} downloads</span>
         </div>
+        <InstallCommand slug={agent.slug} version={agent.currentVersion} />
       </div>
 
       <div className="flex gap-8">
@@ -87,39 +80,24 @@ export default async function AgentDetailPage({ params }: AgentDetailPageProps) 
             <p className="font-mono text-sm text-text-tertiary leading-[1.6]">{agent.description}</p>
           </section>
 
-          {/* Tools */}
-          {tools.length > 0 && (
+          {/* Tags */}
+          {agent.tags && agent.tags.length > 0 && (
             <section>
-              <h2 className="font-ui text-sm font-semibold text-text-secondary mb-3">
-                MCP Tools ({tools.length})
-              </h2>
-              <AgentToolsList tools={tools} />
+              <h2 className="font-ui text-sm font-semibold text-text-secondary mb-3">Tags</h2>
+              <div className="flex flex-wrap gap-2">
+                {agent.tags.map((tag) => (
+                  <span key={tag} className="inline-flex px-2 py-1 bg-bg-border font-mono text-[10px] text-text-secondary">
+                    {tag}
+                  </span>
+                ))}
+              </div>
             </section>
           )}
 
-          {/* Performance metrics — prominent display */}
+          {/* Readme */}
           <section>
-            <h2 className="font-ui text-sm font-semibold text-text-secondary mb-3">Performance (30d)</h2>
-            <div className="flex gap-4">
-              <div className="flex-1 bg-bg-surface border border-bg-border p-4">
-                <p className="font-mono text-[10px] text-text-muted mb-1">Uptime</p>
-                <p className="font-ui text-2xl font-semibold text-lime">
-                  {parseFloat(agent.uptime30d ?? "0").toFixed(1)}%
-                </p>
-              </div>
-              <div className="flex-1 bg-bg-surface border border-bg-border p-4">
-                <p className="font-mono text-[10px] text-text-muted mb-1">P95 Latency</p>
-                <p className="font-ui text-2xl font-semibold text-text-primary">
-                  {agent.p95LatencyMs}ms
-                </p>
-              </div>
-              <div className="flex-1 bg-bg-surface border border-bg-border p-4">
-                <p className="font-mono text-[10px] text-text-muted mb-1">Success Rate</p>
-                <p className="font-ui text-2xl font-semibold text-lime">
-                  {parseFloat(agent.successRate30d ?? "0").toFixed(1)}%
-                </p>
-              </div>
-            </div>
+            <h2 className="font-ui text-sm font-semibold text-text-secondary mb-3">Documentation</h2>
+            <ReadmePreview html={agent.readmeHtml} />
           </section>
 
           {/* Reviews */}
@@ -137,15 +115,13 @@ export default async function AgentDetailPage({ params }: AgentDetailPageProps) 
 
             {!isAuthenticated && (
               <div className="mb-4 bg-bg-surface border border-bg-border p-4 font-mono text-sm text-text-tertiary">
-                <Link href="/api/auth/signin" className="text-lime underline">
-                  Connect your wallet
-                </Link>{" "}
+                <Link href="/sign-in" className="text-lime underline">Sign in</Link>{" "}
                 to leave a review.
               </div>
             )}
 
             {reviews.length === 0 ? (
-              <p className="font-mono text-sm text-text-muted">No reviews yet. Be the first to rate this agent.</p>
+              <p className="font-mono text-sm text-text-muted">No reviews yet. Be the first to rate this intern.</p>
             ) : (
               <div className="space-y-3">
                 {reviews.map((r) => (
@@ -153,7 +129,7 @@ export default async function AgentDetailPage({ params }: AgentDetailPageProps) 
                     <div className="flex items-center justify-between mb-2">
                       <StarDisplay score={r.score} />
                       <span className="font-mono text-[10px] text-text-muted">
-                        {truncateAddress(r.userWallet)}
+                        {truncateAddress(r.userId)}
                       </span>
                     </div>
                     {r.review && (
@@ -169,52 +145,42 @@ export default async function AgentDetailPage({ params }: AgentDetailPageProps) 
           </section>
         </div>
 
-        {/* Sidebar (360px) */}
+        {/* Sidebar */}
         <div className="w-[360px] shrink-0 space-y-4">
-          {/* Pricing card */}
+          {/* Download card */}
           <div className="bg-bg-surface border border-bg-border p-5">
-            <p className="font-mono text-xs text-text-muted mb-1">Price per call</p>
-            <p className="font-ui text-3xl font-bold text-lime">{formatUSDC(agent.pricePerCall)}</p>
-            <p className="font-mono text-[10px] text-text-muted">USDC</p>
-            <div className="mt-4 pt-4 border-t border-bg-border space-y-2 font-mono text-xs">
+            <div className="flex items-center gap-2 mb-3">
+              <Package className="w-4 h-4 text-lime" />
+              <span className="font-mono text-xs font-medium text-text-primary">v{agent.currentVersion}</span>
+            </div>
+            <div className="space-y-2 font-mono text-xs mb-4">
               <div className="flex justify-between">
-                <span className="text-text-tertiary">Total calls</span>
-                <span className="font-medium text-text-primary">{agent.totalCalls.toLocaleString()}</span>
+                <span className="text-text-tertiary">Total downloads</span>
+                <span className="font-medium text-text-primary">{(agent.downloads ?? 0).toLocaleString()}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-text-tertiary">Unique consumers</span>
-                <span className="font-medium text-text-primary">{(agent.uniqueConsumers30d ?? 0).toLocaleString()}</span>
+                <span className="text-text-tertiary">Package size</span>
+                <span className="font-medium text-text-primary">{formatPackageSize(agent.packageSize ?? 0)}</span>
               </div>
             </div>
-            <button className="w-full mt-4 bg-lime text-black font-mono text-xs font-semibold py-2.5 hover:brightness-110 transition-all">
-              Use This Agent
-            </button>
-            <Link
-              href={`/agents/${slug}/playground`}
-              className="block w-full mt-2 text-center font-mono text-xs text-lime hover:brightness-110 transition-all"
+            <a
+              href={downloadUrl}
+              className="flex items-center justify-center gap-2 w-full bg-lime text-black font-mono text-xs font-semibold py-2.5 hover:brightness-110 transition-all"
             >
-              Try in Playground →
-            </Link>
-          </div>
-
-          {/* Gateway code snippet */}
-          <div className="bg-bg-surface border border-bg-border p-4">
-            <p className="font-mono text-[10px] text-text-muted mb-2">MCP Gateway endpoint</p>
-            <code className="font-mono text-xs text-lime break-all">{gatewayUrl}</code>
-            <p className="font-mono text-[10px] text-text-muted mt-2">
-              Calls billed at <strong className="text-text-secondary">{formatUSDC(agent.pricePerCall)} USDC</strong> per request via x402.
-            </p>
+              <Download className="w-3.5 h-3.5" />
+              Download .internagent
+            </a>
           </div>
 
           {/* Creator card */}
           <div className="bg-bg-surface border border-bg-border p-5">
             <p className="font-mono text-[10px] text-text-muted mb-2">Creator</p>
-            <Link href={`/creators/${agent.creatorWallet}`} className="group">
+            <Link href={`/creators/${agent.creator?.clerkUserId ?? ""}`} className="group">
               <p className="font-mono text-sm font-medium text-text-primary group-hover:text-lime transition-colors">
-                {agent.creator?.displayName ?? truncateAddress(agent.creatorWallet)}
+                {agent.creator?.displayName ?? truncateAddress(agent.creator?.clerkUserId ?? "")}
               </p>
               <p className="font-mono text-[10px] text-text-muted mt-0.5">
-                {truncateAddress(agent.creatorWallet)}
+                {truncateAddress(agent.creator?.clerkUserId ?? "")}
               </p>
             </Link>
           </div>

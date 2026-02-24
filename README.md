@@ -1,32 +1,30 @@
 # InternMarket
 
-An **AI Agent Marketplace powered by MCP (Model Context Protocol)** with Web3 authentication, transparent trust metrics, and micropayments via x402.
+**The App Store for AI Interns** — discover, install, and share AI interns with one command. Publish and monetize yours in minutes.
 
 ## Overview
 
-InternMarket enables independent AI agent creators to:
-- Register MCP-compatible agents in a searchable marketplace
-- Build reputation through performance metrics and user ratings
-- Monetize agents via x402 per-call payments
-- Access transparent trust scoring and creator analytics
+InternMarket enables creators to:
+- Publish AI interns (OpenClaw agents) in a searchable marketplace
+- Build reputation through user ratings and trust scoring
+- Monetize interns via one-time purchases, subscriptions, or tips
+- Access transparent creator analytics and download metrics
 
-Consumers can:
-- Discover vetted, high-performing AI agents by category
-- View performance metrics and trust tiers
-- Call agents with automatic payment processing
-- Rate and review agents to build community trust
+Users can:
+- Discover vetted, high-quality AI interns by category
+- Install any intern with a single CLI command
+- View trust tiers and community ratings
+- Rate and review interns to build community trust
 
 ## Tech Stack
 
 | Layer | Technology | Version |
 |-------|-----------|---------|
 | **Frontend** | Next.js + React + TailwindCSS | 15 + 19 + 4 |
-| **Auth** | SIWE + NextAuth + RainbowKit + Wagmi | 3 + 5β + 2.2 + 2.19 |
-| **Backend** | Hono (Cloudflare Workers) | 4 |
-| **Database** | Drizzle ORM + Neon PostgreSQL | 0.45 + serverless |
+| **Auth** | SIWE + NextAuth (migrating to Clerk) | 3 + 5β |
+| **Database** | Drizzle ORM + Neon PostgreSQL (migrating to Supabase) | 0.45 + serverless |
+| **Payments** | Stripe Connect (planned) | — |
 | **Monorepo** | pnpm + Turborepo | 10.25 + 2 |
-
-**Blockchains:** Base (mainnet/testnet), Ethereum Mainnet
 
 ## Project Structure
 
@@ -37,8 +35,7 @@ interns-market/
 │   │   ├── src/app/      # App Router pages & routes
 │   │   ├── src/components/
 │   │   └── src/lib/
-│   └── gateway/          # Cloudflare Workers edge API
-│       └── src/
+│   └── (gateway removed)
 ├── packages/
 │   ├── db/               # Drizzle ORM + 7-table schema
 │   ├── types/            # Shared TypeScript interfaces
@@ -50,31 +47,24 @@ interns-market/
 
 ## Core Features
 
-### Agent Marketplace
-- Searchable registry of MCP agents
-- Agent discovery by category (marketing, assistant, coding, trading, social, copywriting, pm)
-- Real-time trust tiers (new, bronze, silver, gold, platinum)
-- Performance metrics (uptime, success rate, latency, consumer count)
+### AI Intern Marketplace
+- Searchable registry of AI interns (OpenClaw agents)
+- Intern discovery by category (marketing, assistant, coding, trading, social, copywriting, pm)
+- Trust tiers (new, bronze, silver, gold)
+- Download metrics and community ratings
 
-### Web3 Authentication
-- Sign-In with Ethereum (SIWE) for wallet-based auth
-- RainbowKit + Wagmi for wallet connection
-- NextAuth 5 for session management
+### Authentication
+- SIWE + NextAuth (migrating to Clerk in Phase 3)
 - Protected creator dashboard
 
 ### Trust & Reputation
-- Automated trust scoring from:
-  - 30-day success rate (40% weight)
-  - 30-day uptime (30% weight)
-  - User ratings (30% weight)
-- Health checks every 5 minutes
-- Metrics aggregation hourly
+- Community-driven trust scoring via ratings and downloads
+- Trust tier badges displayed on intern cards
 
-### Payment Processing
-- x402 protocol integration for micropayments
-- Per-call pricing set by creators
-- Platform fee splitting (15% platform, 85% creator)
-- Transaction history and payout tracking
+### Monetization (Planned)
+- One-time purchases, subscriptions, and tips via Stripe Connect
+- Platform fee splitting
+- Creator analytics and payout tracking
 
 ## Getting Started
 

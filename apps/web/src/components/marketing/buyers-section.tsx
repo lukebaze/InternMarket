@@ -7,7 +7,7 @@ import { CategorySection } from "./category-section";
 import { stagger, fadeUp } from "./motion-variants";
 
 const BENEFITS = [
-  { icon: Zap, text: "Install any agent in seconds" },
+  { icon: Zap, text: "Install any intern in seconds" },
   { icon: Shield, text: "Every package cryptographically verified" },
   { icon: Layers, text: "Works with your existing Claude Code setup" },
   { icon: RefreshCw, text: "Auto-updates keep you on latest version" },
@@ -17,7 +17,7 @@ const TERMINAL_LINES = [
   { text: "internmarket install marketing-genius", isCommand: true },
   { text: "resolving marketing-genius@1.2.0...", isCommand: false },
   { text: "✓ verified signature (ed25519)", isCommand: false },
-  { text: "✓ installed to ~/.claude/agents/", isCommand: false },
+  { text: "✓ installed to ~/.claude/interns/", isCommand: false },
   { text: "claude --agent marketing-genius", isCommand: true },
 ];
 
@@ -72,7 +72,7 @@ export function BuyersSection() {
           <Quote className="w-5 h-5 text-lime/60 shrink-0 mt-0.5" />
           <div className="flex flex-col gap-2">
             <p className="font-mono text-xs text-text-secondary leading-relaxed">
-              &ldquo;I went from hearing about an agent to using it in production in under 60 seconds.
+              &ldquo;I went from hearing about an intern to using it in production in under 60 seconds.
               That&rsquo;s never happened before.&rdquo;
             </p>
             <p className="font-mono text-[11px] text-text-muted">

@@ -1,122 +1,220 @@
-import { Command } from "commander";
-import ora from "ora";
-import chalk from "chalk";
-import { readFileSync } from "fs";
+/**
+ * publish.ts — publish intern package to InternMarket marketplace
+ * Uses Ink TUI for step-by-step publish progress display.
+ * Falls back to ora spinners when --no-tui flag is set (CI mode).
+ */
+import fs from "node:fs";
+import path from "node:path";
+import readline from "node:readline";
+import { buildPackage } from "../lib/packager.js";
+import { readManifest, validateManifest } from "../lib/manifest-reader.js";
+import { isAuthenticated } from "../lib/auth-store.js";
+import { apiPost } from "../lib/api-client.js";
+import { info, success, error, createSpinner } from "../lib/logger.js";
 
-interface AgentConfig {
-  name: string;
-  endpoint: string;
-  price: string;
-  category: string;
-  description?: string;
+interface PublishOptions {
+  changelog?: string;
+  noTui?: boolean;
 }
 
-const REQUIRED_FIELDS: (keyof AgentConfig)[] = ["name", "endpoint", "price", "category"];
-const VALID_CATEGORIES = ["marketing", "assistant", "copywriting", "coding", "pm", "trading", "social"];
-
-function loadConfig(configPath: string): AgentConfig {
-  try {
-    const raw = readFileSync(configPath, "utf-8");
-    return JSON.parse(raw) as AgentConfig;
-  } catch {
-    throw new Error(`Cannot read config at ${configPath}. Ensure the file exists and is valid JSON.`);
-  }
-}
-
-function validateConfig(config: AgentConfig): void {
-  for (const field of REQUIRED_FIELDS) {
-    if (!config[field]) {
-      throw new Error(`Missing required field: "${field}" in config`);
-    }
-  }
-  if (!VALID_CATEGORIES.includes(config.category)) {
-    throw new Error(`Invalid category "${config.category}". Must be one of: ${VALID_CATEGORIES.join(", ")}`);
-  }
-  const price = parseFloat(config.price);
-  if (isNaN(price) || price <= 0) {
-    throw new Error(`Invalid price "${config.price}". Must be a positive number (USDC per call).`);
-  }
-}
-
-async function healthCheckEndpoint(endpoint: string): Promise<void> {
-  try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 5000);
-    const res = await fetch(endpoint, { method: "HEAD", signal: controller.signal });
-    clearTimeout(timeout);
-    if (!res.ok) {
-      throw new Error(`Endpoint returned HTTP ${res.status}`);
-    }
-  } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : String(err);
-    throw new Error(`Endpoint health check failed: ${msg}`);
-  }
-}
-
-export const publishCommand = new Command("publish")
-  .description("Publish an AI agent to interns.market")
-  .option("-c, --config <path>", "Path to config file", "interns.json")
-  .option("-k, --api-key <key>", "API key (or set INTERNS_API_KEY env var)")
-  .option("--api-url <url>", "Override API URL", "https://interns.market/api/agents")
-  .action(async (opts) => {
-    const apiKey = opts.apiKey || process.env.INTERNS_API_KEY;
-    if (!apiKey) {
-      console.error(chalk.red("Error: API key required. Use --api-key or set INTERNS_API_KEY."));
-      process.exit(1);
-    }
-
-    // Load & validate config
-    let config: AgentConfig;
-    try {
-      config = loadConfig(opts.config);
-      validateConfig(config);
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      console.error(chalk.red(`Config error: ${msg}`));
-      process.exit(1);
-    }
-
-    // Health check
-    const healthSpinner = ora("Checking agent endpoint...").start();
-    try {
-      await healthCheckEndpoint(config.endpoint);
-      healthSpinner.succeed(chalk.green("Endpoint is reachable"));
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      healthSpinner.fail(chalk.red(msg));
-      process.exit(1);
-    }
-
-    // Publish
-    const publishSpinner = ora("Publishing agent...").start();
-    try {
-      const res = await fetch(opts.apiUrl, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${apiKey}`,
-        },
-        body: JSON.stringify({
-          name: config.name,
-          endpoint: config.endpoint,
-          pricePerCall: config.price,
-          category: config.category,
-          description: config.description ?? "",
-        }),
-      });
-
-      if (!res.ok) {
-        const body = await res.text().catch(() => "");
-        throw new Error(`API error ${res.status}: ${body}`);
-      }
-
-      const data = (await res.json()) as { slug?: string };
-      publishSpinner.succeed(chalk.green("Agent published successfully!"));
-      const agentUrl = `https://interns.market/agents/${data.slug ?? ""}`;
-      console.log(`\n  ${chalk.bold("Agent URL:")} ${chalk.cyan(agentUrl)}`);
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      publishSpinner.fail(chalk.red(`Publish failed: ${msg}`));
-      process.exit(1);
-    }
+async function promptChangelog(): Promise<string> {
+  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+  return new Promise((resolve) => {
+    rl.question("Changelog (optional, press Enter to skip): ", (answer) => {
+      rl.close();
+      resolve(answer.trim());
+    });
   });
+}
+
+/** Publish using ora spinners (CI / --no-tui mode) */
+async function publishWithSpinners(opts: PublishOptions): Promise<void> {
+  const cwd = process.cwd();
+  let manifest: ReturnType<typeof readManifest>;
+  try {
+    manifest = readManifest(cwd);
+    const { valid, errors } = validateManifest(manifest);
+    if (!valid) throw new Error(errors.join(", "));
+  } catch (err) {
+    error(`Invalid manifest: ${err instanceof Error ? err.message : String(err)}`);
+    process.exit(1);
+  }
+
+  const { slug, version } = manifest;
+  const tarballName = `${slug}-${version}.internagent`;
+  let tarballPath = path.join(cwd, tarballName);
+
+  if (!fs.existsSync(tarballPath)) {
+    const buildSpinner = createSpinner("Building package...");
+    buildSpinner.start();
+    try {
+      ({ tarballPath } = await buildPackage(cwd));
+      buildSpinner.succeed("Package built");
+    } catch (err) {
+      buildSpinner.fail(`Build failed: ${err instanceof Error ? err.message : String(err)}`);
+      process.exit(1);
+    }
+  } else {
+    info(`Using existing package: ${tarballName}`);
+  }
+
+  const changelog = opts.changelog ?? (await promptChangelog());
+  const fileBuffer = fs.readFileSync(tarballPath);
+  const filename = path.basename(tarballPath);
+
+  const urlSpinner = createSpinner("Requesting upload URL...");
+  urlSpinner.start();
+  let uploadUrl: string;
+  let packageKey: string;
+  try {
+    const res = await apiPost<{ uploadUrl: string; packageKey: string }>(
+      "/upload/presigned",
+      { filename, slug, version }
+    );
+    uploadUrl = res.uploadUrl;
+    packageKey = res.packageKey;
+    urlSpinner.succeed("Upload URL obtained");
+  } catch (err) {
+    urlSpinner.fail(`Failed to get upload URL: ${err instanceof Error ? err.message : String(err)}`);
+    process.exit(1);
+  }
+
+  const putSpinner = createSpinner("Uploading package...");
+  putSpinner.start();
+  try {
+    const putRes = await fetch(uploadUrl!, {
+      method: "PUT",
+      body: fileBuffer,
+      headers: { "Content-Type": "application/gzip" },
+    });
+    if (!putRes.ok) throw new Error(`HTTP ${putRes.status}`);
+    putSpinner.succeed("Package uploaded");
+  } catch (err) {
+    putSpinner.fail(`Upload error: ${err instanceof Error ? err.message : String(err)}`);
+    process.exit(1);
+  }
+
+  const regSpinner = createSpinner("Registering version...");
+  regSpinner.start();
+  try {
+    await apiPost(`/agents/${slug}/versions`, { packageKey: packageKey!, version, changelog });
+    regSpinner.succeed("Version registered");
+  } catch (err) {
+    regSpinner.fail(`Registration failed: ${err instanceof Error ? err.message : String(err)}`);
+    process.exit(1);
+  }
+
+  success(`Published ${slug}@${version}`);
+}
+
+/** Publish using Ink TUI (interactive mode) */
+async function publishWithTUI(opts: PublishOptions): Promise<void> {
+  const { renderApp } = await import("../ui/app-wrapper.js");
+  const { PublishStatus } = await import("../ui/publish-status.js");
+
+  const cwd = process.cwd();
+  let manifest: ReturnType<typeof readManifest>;
+  try {
+    manifest = readManifest(cwd);
+    const { valid, errors } = validateManifest(manifest);
+    if (!valid) throw new Error(errors.join(", "));
+  } catch (err) {
+    error(`Invalid manifest: ${err instanceof Error ? err.message : String(err)}`);
+    process.exit(1);
+  }
+
+  const { slug, version } = manifest;
+
+  // Collect changelog before TUI starts (needs stdin)
+  const changelog = opts.changelog ?? (await promptChangelog());
+
+  let packageSize = 0;
+  let tarballPath = "";
+  let uploadUrl = "";
+  let packageKey = "";
+
+  // Build
+  await renderApp(PublishStatus, { step: "packaging", slug, version, packageSize: 0 });
+
+  try {
+    const tarballName = `${slug}-${version}.internagent`;
+    const existing = path.join(cwd, tarballName);
+    if (fs.existsSync(existing)) {
+      tarballPath = existing;
+      packageSize = fs.statSync(tarballPath).size;
+    } else {
+      const result = await buildPackage(cwd);
+      tarballPath = result.tarballPath;
+      packageSize = result.size;
+    }
+  } catch (err) {
+    await renderApp(PublishStatus, {
+      step: "error",
+      slug,
+      version,
+      errorMsg: `Build failed: ${err instanceof Error ? err.message : String(err)}`,
+    });
+    process.exit(1);
+  }
+
+  const fileBuffer = fs.readFileSync(tarballPath);
+  const filename = path.basename(tarballPath);
+
+  // Upload
+  await renderApp(PublishStatus, { step: "uploading", slug, version, packageSize });
+
+  try {
+    const res = await apiPost<{ uploadUrl: string; packageKey: string }>(
+      "/upload/presigned",
+      { filename, slug, version }
+    );
+    uploadUrl = res.uploadUrl;
+    packageKey = res.packageKey;
+
+    const putRes = await fetch(uploadUrl, {
+      method: "PUT",
+      body: fileBuffer,
+      headers: { "Content-Type": "application/gzip" },
+    });
+    if (!putRes.ok) throw new Error(`HTTP ${putRes.status}`);
+  } catch (err) {
+    await renderApp(PublishStatus, {
+      step: "error",
+      slug,
+      version,
+      errorMsg: `Upload failed: ${err instanceof Error ? err.message : String(err)}`,
+    });
+    process.exit(1);
+  }
+
+  // Register
+  await renderApp(PublishStatus, { step: "registering", slug, version, packageSize });
+
+  try {
+    await apiPost(`/agents/${slug}/versions`, { packageKey, version, changelog });
+  } catch (err) {
+    await renderApp(PublishStatus, {
+      step: "error",
+      slug,
+      version,
+      errorMsg: `Registration failed: ${err instanceof Error ? err.message : String(err)}`,
+    });
+    process.exit(1);
+  }
+
+  await renderApp(PublishStatus, { step: "done", slug, version, packageSize });
+}
+
+export async function publishCmd(opts: PublishOptions): Promise<void> {
+  if (!isAuthenticated()) {
+    error("Not authenticated. Run: internmarket login");
+    process.exit(1);
+  }
+
+  const useTUI = !opts.noTui && process.stdout.isTTY;
+  if (useTUI) {
+    await publishWithTUI(opts);
+  } else {
+    await publishWithSpinners(opts);
+  }
+}

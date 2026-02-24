@@ -6,21 +6,21 @@ import { Footer } from "@/components/layout/footer";
 
 export const metadata: Metadata = {
   title: {
-    default: "Interns.market - AI Agent Marketplace",
-    template: "%s | Interns.market",
+    default: "InternMarket - The App Store for AI Interns",
+    template: "%s | InternMarket",
   },
-  description: "Monetize your AI agents. Publish MCP servers, set prices, earn USDC.",
+  description: "Discover, install, and share AI interns with one command.",
   openGraph: {
-    title: "Interns.market",
-    description: "Stripe for AI Agents",
+    title: "InternMarket",
+    description: "The App Store for AI Interns",
     url: "https://interns.market",
-    siteName: "Interns.market",
+    siteName: "InternMarket",
     type: "website",
   },
   twitter: {
     card: "summary_large_image",
-    title: "Interns.market",
-    description: "Monetize your AI agents with x402 payments",
+    title: "InternMarket",
+    description: "Discover, install, and share AI interns with one command.",
   },
 };
 

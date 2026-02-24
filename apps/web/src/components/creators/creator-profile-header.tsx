@@ -1,27 +1,25 @@
 "use client";
 
-import { truncateAddress, formatUSDC, formatNumber } from "@/lib/utils";
+import { truncateAddress, formatNumber } from "@/lib/utils";
 
 interface CreatorProfileHeaderProps {
   displayName: string | null;
-  walletAddress: string;
+  clerkUserId: string;
   bio: string | null;
   totalAgents: number;
-  totalCalls: number;
-  totalRevenue: string;
-  avgTrustScore: number;
+  totalDownloads: number;
+  avgRating: number;
 }
 
 export function CreatorProfileHeader({
   displayName,
-  walletAddress,
+  clerkUserId,
   bio,
   totalAgents,
-  totalCalls,
-  totalRevenue,
-  avgTrustScore,
+  totalDownloads,
+  avgRating,
 }: CreatorProfileHeaderProps) {
-  const name = displayName ?? truncateAddress(walletAddress);
+  const name = displayName ?? truncateAddress(clerkUserId);
 
   function copyUrl() {
     navigator.clipboard.writeText(window.location.href);
@@ -32,7 +30,7 @@ export function CreatorProfileHeader({
       <div className="flex items-start justify-between gap-4">
         <div>
           <h1 className="font-ui text-2xl font-bold text-text-primary mb-1">{name}</h1>
-          <p className="font-mono text-xs text-text-muted">{truncateAddress(walletAddress)}</p>
+          <p className="font-mono text-xs text-text-muted">{truncateAddress(clerkUserId)}</p>
           {bio && <p className="font-mono text-sm text-text-tertiary mt-3 leading-relaxed max-w-2xl">{bio}</p>}
         </div>
         <button
@@ -43,12 +41,10 @@ export function CreatorProfileHeader({
         </button>
       </div>
 
-      {/* Stats row */}
       <div className="flex gap-6 mt-5">
         <Stat label="Agents" value={formatNumber(totalAgents)} />
-        <Stat label="Total Calls" value={formatNumber(totalCalls)} />
-        <Stat label="Revenue" value={formatUSDC(totalRevenue)} />
-        <Stat label="Avg Trust" value={avgTrustScore.toFixed(1)} />
+        <Stat label="Downloads" value={formatNumber(totalDownloads)} />
+        <Stat label="Avg Rating" value={isNaN(avgRating) ? "—" : avgRating.toFixed(1)} />
       </div>
     </div>
   );

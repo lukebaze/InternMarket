@@ -5,30 +5,22 @@ import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import {
   LayoutDashboard,
-  Clock,
-  Wallet,
   Star,
   Settings,
 } from "lucide-react";
 
 const SIDEBAR_LINKS = [
   { href: "/consumer", label: "Overview", icon: LayoutDashboard, exact: true },
-  { href: "/consumer/usage", label: "Usage History", icon: Clock },
-  { href: "/consumer/spending", label: "Spending", icon: Wallet },
   { href: "/consumer/favorites", label: "Favorites", icon: Star },
   { href: "/consumer/settings", label: "Settings", icon: Settings },
 ];
 
 interface ConsumerSidebarProps {
-  walletAddress?: string;
+  userId?: string;
 }
 
-export function ConsumerSidebar({ walletAddress }: ConsumerSidebarProps) {
+export function ConsumerSidebar({ userId }: ConsumerSidebarProps) {
   const pathname = usePathname();
-
-  const displayAddress = walletAddress
-    ? `${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)}`
-    : "0x1a2B...9eF0";
 
   return (
     <aside className="w-60 shrink-0 bg-bg-page border-r border-bg-border flex flex-col pt-6">
@@ -65,20 +57,22 @@ export function ConsumerSidebar({ walletAddress }: ConsumerSidebarProps) {
         })}
       </nav>
 
-      {/* Bottom wallet info */}
+      {/* Bottom user info */}
       <div className="border-t border-bg-border px-6 py-4">
         <p className="font-mono text-[8px] font-bold text-text-muted tracking-wider mb-1.5">
-          CONNECTED WALLET
+          ACCOUNT
         </p>
         <p className="font-mono text-[11px] text-text-secondary mb-2">
-          {displayAddress}
+          {userId ? `...${userId.slice(-8)}` : "Not signed in"}
         </p>
-        <div className="flex items-center gap-2">
-          <span className="w-1.5 h-1.5 rounded-full bg-lime shrink-0" />
-          <span className="font-mono text-xs font-semibold text-text-primary">
-            24.50 USDC
-          </span>
-        </div>
+        {userId && (
+          <div className="flex items-center gap-2">
+            <span className="w-1.5 h-1.5 rounded-full bg-lime shrink-0" />
+            <span className="font-mono text-xs font-semibold text-text-primary">
+              Signed in
+            </span>
+          </div>
+        )}
       </div>
     </aside>
   );

@@ -1,9 +1,8 @@
 import { NextResponse } from "next/server";
-import { createNodeClient } from "@repo/db";
-import { agents } from "@repo/db";
+import { createNodeClient, agents, creators } from "@repo/db";
 import { eq } from "drizzle-orm";
-import { auth } from "@/lib/auth";
-import { checkRatingEligibility, getExistingRating } from "@/lib/rating-service";
+import { auth } from "@clerk/nextjs/server";
+import { getExistingRating } from "@/lib/rating-service";
 
 function getDb() {
   const url = process.env.DATABASE_URL;
@@ -16,14 +15,9 @@ type Params = { params: Promise<{ slug: string }> };
 /** GET /api/ratings/eligible/:slug — check if user can rate this agent */
 export async function GET(_request: Request, { params }: Params) {
   try {
-    const session = await auth();
-    if (!session?.user) {
+    const { userId } = await auth();
+    if (!userId) {
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
-    }
-
-    const wallet = (session.user as { address?: string }).address;
-    if (!wallet) {
-      return NextResponse.json({ error: "No wallet address" }, { status: 401 });
     }
 
     const { slug } = await params;
@@ -39,12 +33,21 @@ export async function GET(_request: Request, { params }: Params) {
       return NextResponse.json({ error: "Agent not found" }, { status: 404 });
     }
 
-    const { eligible, reason } = await checkRatingEligibility(db, agent.id, wallet);
-    const existing = await getExistingRating(db, agent.id, wallet);
+    // Resolve creator by clerkUserId
+    const [creator] = await db
+      .select({ id: creators.id })
+      .from(creators)
+      .where(eq(creators.clerkUserId, userId))
+      .limit(1);
+
+    if (!creator) {
+      return NextResponse.json({ eligible: true, existingRating: undefined });
+    }
+
+    const existing = await getExistingRating(db, agent.id, creator.id);
 
     return NextResponse.json({
-      eligible,
-      reason: eligible ? undefined : reason,
+      eligible: true,
       existingRating: existing
         ? { score: existing.score, review: existing.review }
         : undefined,

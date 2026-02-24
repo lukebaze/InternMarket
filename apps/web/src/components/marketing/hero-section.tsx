@@ -76,7 +76,7 @@ export function HeroSection() {
             className="w-2 h-2 rounded-full bg-lime shadow-[0_0_8px_rgba(191,255,0,0.8)]"
           />
           <span className="font-mono text-[11px] font-medium text-text-secondary tracking-wider uppercase">
-            The Agent Economy Is Here
+            The AI Intern Economy Is Here
           </span>
         </motion.div>
 
@@ -85,7 +85,7 @@ export function HeroSection() {
           <h1 className="font-ui text-5xl sm:text-6xl md:text-7xl lg:text-[80px] font-semibold text-text-primary text-center leading-[1.08] tracking-tight">
             The App Store for{" "}
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-lime via-[#99ff00] to-blue-400">
-              &ldquo;Skillfull&rdquo; Agents
+              AI Interns
             </span>
           </h1>
         </motion.div>
@@ -95,7 +95,7 @@ export function HeroSection() {
           variants={fadeUp}
           className="font-mono text-sm md:text-base text-text-tertiary text-center leading-relaxed max-w-[640px]"
         >
-          Discover &amp; install agents in one command. Publish &amp; monetize yours in minutes.
+          Discover &amp; install AI interns in one command. Publish &amp; monetize yours in minutes.
         </motion.p>
 
         {/* Terminal */}
@@ -110,7 +110,7 @@ export function HeroSection() {
             className="group relative flex items-center gap-2 bg-lime text-black font-mono text-sm font-semibold px-6 py-3 rounded-md overflow-hidden transition-all hover:scale-105 hover:shadow-[0_0_30px_rgba(191,255,0,0.3)]"
           >
             <Sparkles className="w-4 h-4" />
-            Browse Agents
+            Browse Interns
           </Link>
           <a
             href="#creators"

@@ -1,23 +1,41 @@
 {
-  "name": "interns-cli",
+  "name": "@internmarket/cli",
   "version": "0.1.0",
-  "description": "CLI to publish and manage AI agents on interns.market",
-  "bin": { "interns": "./dist/index.js" },
+  "description": "CLI for InternMarket agent marketplace",
+  "type": "module",
+  "bin": {
+    "internmarket": "./dist/index.js"
+  },
   "main": "./dist/index.js",
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "scripts": {
-    "build": "tsup src/index.ts --format esm --dts --clean",
-    "dev": "tsup src/index.ts --format esm --watch",
-    "type-check": "tsc --noEmit"
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "type-check": "tsc --noEmit",
+    "prepublishOnly": "pnpm build"
   },
   "dependencies": {
-    "commander": "^12",
-    "ora": "^8",
-    "chalk": "^5"
+    "chalk": "^5.0.0",
+    "commander": "^12.0.0",
+    "ink": "^6.8.0",
+    "ink-spinner": "^5.0.0",
+    "ora": "^8.0.0",
+    "react": "^19.2.4",
+    "semver": "^7.0.0",
+    "tar": "^7.0.0"
   },
   "devDependencies": {
-    "tsup": "^8",
-    "typescript": "^5",
-    "@repo/tsconfig": "workspace:*"
+    "@repo/tsconfig": "workspace:*",
+    "@types/node": "^20.0.0",
+    "@types/react": "^19.2.14",
+    "@types/semver": "^7.0.0",
+    "@types/tar": "^6.0.0",
+    "tsup": "^8.0.0",
+    "typescript": "^5.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
   }
 }

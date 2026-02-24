@@ -8,7 +8,7 @@ import { stagger, fadeUp } from "./motion-variants";
 
 const TESTIMONIALS = [
   {
-    quote: "Replaced three internal tools with agents from InternMarket. Setup took 5 minutes.",
+    quote: "Replaced three internal tools with interns from InternMarket. Setup took 5 minutes.",
     name: "Sarah Chen",
     role: "Engineering Lead, Acme Corp",
   },
@@ -18,7 +18,7 @@ const TESTIMONIALS = [
     role: "VP Engineering, NovaTech",
   },
   {
-    quote: "The trust scoring gives us confidence to adopt third-party agents in production.",
+    quote: "The trust scoring gives us confidence to adopt third-party interns in production.",
     name: "Priya Sharma",
     role: "CTO, DevFlow",
   },
@@ -97,7 +97,7 @@ export function SocialProofSection() {
         {/* Final CTA */}
         <motion.div variants={fadeUp} className="flex flex-col items-center gap-8">
           <h2 className="font-ui text-3xl md:text-4xl font-semibold text-text-primary text-center">
-            The agent economy starts here.
+            The AI intern economy starts here.
           </h2>
 
           <div className="flex flex-wrap items-center justify-center gap-4">
@@ -106,7 +106,7 @@ export function SocialProofSection() {
               className="flex items-center gap-2 bg-lime text-black font-mono text-sm font-semibold px-6 py-3 rounded-md hover:scale-105 transition-transform"
             >
               <Sparkles className="w-4 h-4" />
-              Browse Agents
+              Browse Interns
             </Link>
             <a
               href="#creators"

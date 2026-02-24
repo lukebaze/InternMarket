@@ -2,11 +2,11 @@ import { cn } from "@/lib/utils";
 
 interface AgentRatingProps {
   rating: string;
-  totalCalls?: number;
+  ratingCount?: number;
   className?: string;
 }
 
-export function AgentRating({ rating, totalCalls, className }: AgentRatingProps) {
+export function AgentRating({ rating, ratingCount, className }: AgentRatingProps) {
   const num = parseFloat(rating);
   const filled = Math.round(isNaN(num) ? 0 : num);
 
@@ -26,7 +26,7 @@ export function AgentRating({ rating, totalCalls, className }: AgentRatingProps)
       </div>
       <span className="font-mono text-[10px] text-text-tertiary">
         {isNaN(num) ? "0.0" : num.toFixed(1)}
-        {totalCalls !== undefined && ` (${totalCalls.toLocaleString()})`}
+        {ratingCount !== undefined && ` (${ratingCount.toLocaleString()})`}
       </span>
     </div>
   );

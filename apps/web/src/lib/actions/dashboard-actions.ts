@@ -1,10 +1,10 @@
 "use server";
 
-import type { Agent, Transaction } from "@repo/types";
-import { auth } from "@/lib/auth";
+import type { Agent } from "@repo/types";
+import { auth } from "@clerk/nextjs/server";
 import { createNodeClient } from "@repo/db";
-import { agents, transactions, creators } from "@repo/db";
-import { eq, desc, count, avg, sum, inArray } from "drizzle-orm";
+import { agents, creators, downloads } from "@repo/db";
+import { eq, desc, count, avg, sum, sql } from "drizzle-orm";
 
 function getDb() {
   const url = process.env.DATABASE_URL;
@@ -14,17 +14,23 @@ function getDb() {
 
 export async function getMyAgents(): Promise<Agent[]> {
   try {
-    const session = await auth();
-    if (!session?.user) return [];
-
-    const walletAddress = (session.user as { address?: string }).address;
-    if (!walletAddress) return [];
+    const { userId } = await auth();
+    if (!userId) return [];
 
     const db = getDb();
+
+    const creatorRows = await db
+      .select({ id: creators.id })
+      .from(creators)
+      .where(eq(creators.clerkUserId, userId))
+      .limit(1);
+
+    if (!creatorRows.length) return [];
+
     const rows = await db
       .select()
       .from(agents)
-      .where(eq(agents.creatorWallet, walletAddress))
+      .where(eq(agents.creatorId, creatorRows[0].id))
       .orderBy(desc(agents.createdAt));
 
     return rows as unknown as Agent[];
@@ -35,72 +41,70 @@ export async function getMyAgents(): Promise<Agent[]> {
 
 export interface DashboardStats {
   totalAgents: number;
-  totalCalls: number;
-  totalRevenue: string;
+  totalDownloads: number;
   avgRating: string;
+  totalRatings: number;
 }
 
 export async function getDashboardStats(): Promise<DashboardStats> {
   try {
-    const session = await auth();
-    if (!session?.user) return { totalAgents: 0, totalCalls: 0, totalRevenue: "0", avgRating: "0" };
+    const { userId } = await auth();
+    const emptyStats: DashboardStats = { totalAgents: 0, totalDownloads: 0, avgRating: "0", totalRatings: 0 };
 
-    const walletAddress = (session.user as { address?: string }).address;
-    if (!walletAddress) return { totalAgents: 0, totalCalls: 0, totalRevenue: "0", avgRating: "0" };
+    if (!userId) return emptyStats;
 
     const db = getDb();
 
-    // Get creator record
     const creatorRows = await db
-      .select()
+      .select({ id: creators.id })
       .from(creators)
-      .where(eq(creators.walletAddress, walletAddress))
+      .where(eq(creators.clerkUserId, userId))
       .limit(1);
 
-    if (!creatorRows.length) {
-      return { totalAgents: 0, totalCalls: 0, totalRevenue: "0", avgRating: "0" };
-    }
+    if (!creatorRows.length) return emptyStats;
 
     const creatorId = creatorRows[0].id;
 
     const [stats] = await db
       .select({
         totalAgents: count(agents.id),
-        totalCalls: sum(agents.totalCalls),
+        totalDownloads: sum(agents.downloads),
         avgRating: avg(agents.ratingAvg),
+        totalRatings: sql<number>`sum(${agents.ratingCount})`,
       })
       .from(agents)
       .where(eq(agents.creatorId, creatorId));
 
-    const revenueRows = await db
-      .select({ total: sum(transactions.creatorPayout) })
-      .from(transactions)
-      .leftJoin(agents, eq(transactions.agentId, agents.id))
-      .where(eq(agents.creatorId, creatorId));
-
     return {
       totalAgents: Number(stats?.totalAgents ?? 0),
-      totalCalls: Number(stats?.totalCalls ?? 0),
-      totalRevenue: revenueRows[0]?.total ?? "0",
-      avgRating: stats?.avgRating ?? "0",
+      totalDownloads: Number(stats?.totalDownloads ?? 0),
+      avgRating: String(stats?.avgRating ?? "0"),
+      totalRatings: Number(stats?.totalRatings ?? 0),
     };
   } catch {
-    return { totalAgents: 0, totalCalls: 0, totalRevenue: "0", avgRating: "0" };
+    return { totalAgents: 0, totalDownloads: 0, avgRating: "0", totalRatings: 0 };
   }
 }
 
-export interface PaginatedTransactions {
-  transactions: Transaction[];
+export interface DownloadRecord {
+  id: string;
+  agentId: string;
+  version: string;
+  ipHash: string;
+  createdAt: Date;
+}
+
+export interface PaginatedDownloads {
+  downloads: DownloadRecord[];
   nextCursor?: string;
 }
 
-export async function getMyTransactions(params: { cursor?: string; limit?: number } = {}): Promise<PaginatedTransactions> {
+export async function getMyDownloads(
+  params: { limit?: number } = {},
+): Promise<PaginatedDownloads> {
   try {
-    const session = await auth();
-    if (!session?.user) return { transactions: [] };
-
-    const walletAddress = (session.user as { address?: string }).address;
-    if (!walletAddress) return { transactions: [] };
+    const { userId } = await auth();
+    if (!userId) return { downloads: [] };
 
     const db = getDb();
     const { limit = 20 } = params;
@@ -108,34 +112,36 @@ export async function getMyTransactions(params: { cursor?: string; limit?: numbe
     const creatorRows = await db
       .select({ id: creators.id })
       .from(creators)
-      .where(eq(creators.walletAddress, walletAddress))
+      .where(eq(creators.clerkUserId, userId))
       .limit(1);
 
-    if (!creatorRows.length) return { transactions: [] };
+    if (!creatorRows.length) return { downloads: [] };
 
     const creatorAgents = await db
       .select({ id: agents.id })
       .from(agents)
       .where(eq(agents.creatorId, creatorRows[0].id));
 
-    if (!creatorAgents.length) return { transactions: [] };
+    if (!creatorAgents.length) return { downloads: [] };
 
-    const agentIds = creatorAgents.map((a) => a.id);
+    // Get recent downloads across all creator's agents
+    const rows: DownloadRecord[] = [];
+    for (const a of creatorAgents.slice(0, 5)) {
+      const agentDownloads = await db
+        .select()
+        .from(downloads)
+        .where(eq(downloads.agentId, a.id))
+        .orderBy(desc(downloads.createdAt))
+        .limit(limit);
+      rows.push(...(agentDownloads as DownloadRecord[]));
+    }
 
-    // Fetch transactions for all creator's agents
-    const rows = await db
-      .select()
-      .from(transactions)
-      .where(inArray(transactions.agentId, agentIds))
-      .orderBy(desc(transactions.createdAt))
-      .limit(limit + 1);
+    rows.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+    const data = rows.slice(0, limit);
+    const nextCursor = data.length >= limit ? data[data.length - 1].id : undefined;
 
-    const hasMore = rows.length > limit;
-    const data = hasMore ? rows.slice(0, limit) : rows;
-    const nextCursor = hasMore ? data[data.length - 1].id : undefined;
-
-    return { transactions: data as unknown as Transaction[], nextCursor };
+    return { downloads: data, nextCursor };
   } catch {
-    return { transactions: [] };
+    return { downloads: [] };
   }
 }

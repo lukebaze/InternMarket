@@ -1,8 +1,7 @@
 import { notFound } from "next/navigation";
-import { auth } from "@/lib/auth";
+import { auth } from "@clerk/nextjs/server";
 import { AgentForm } from "@/components/dashboard/agent-form";
-import { createNodeClient } from "@repo/db";
-import { agents } from "@repo/db";
+import { createNodeClient, agents, creators } from "@repo/db";
 import { eq } from "drizzle-orm";
 import type { Agent } from "@repo/types";
 
@@ -12,33 +11,33 @@ interface EditAgentPageProps {
 
 export default async function EditAgentPage({ params }: EditAgentPageProps) {
   const { id } = await params;
-  const session = await auth();
-  const walletAddress = (session?.user as { address?: string })?.address;
+  const { userId } = await auth();
 
   let agent: Agent | null = null;
+  let ownerKey: string | null = null;
+
   try {
     const url = process.env.DATABASE_URL;
     if (url) {
       const db = createNodeClient(url);
-      const rows = await db.select().from(agents).where(eq(agents.id, id)).limit(1);
-      if (rows.length) agent = rows[0] as unknown as Agent;
+      const rows = await db
+        .select({ agent: agents, ownerKey: creators.clerkUserId })
+        .from(agents)
+        .leftJoin(creators, eq(agents.creatorId, creators.id))
+        .where(eq(agents.id, id))
+        .limit(1);
+
+      if (rows.length) {
+        agent = rows[0].agent as unknown as Agent;
+        ownerKey = rows[0].ownerKey ?? null;
+      }
     }
   } catch {
-    // DB not available yet — show empty form fallback
+    // DB not available — show 404
   }
 
   if (!agent) notFound();
+  if (ownerKey !== userId) notFound();
 
-  // Authorization check
-  if (agent.creatorWallet !== walletAddress) notFound();
-
-  return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-xl font-bold text-gray-900">Edit Agent</h1>
-        <p className="text-sm text-gray-500 mt-1">Update your agent&apos;s details.</p>
-      </div>
-      <AgentForm agent={agent} walletAddress={walletAddress} />
-    </div>
-  );
+  return <AgentForm agent={agent} />;
 }

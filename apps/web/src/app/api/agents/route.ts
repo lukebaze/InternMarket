@@ -1,14 +1,14 @@
 import { NextResponse } from "next/server";
-import { createNodeClient } from "@repo/db";
-import { agents } from "@repo/db";
-import { auth } from "@/lib/auth";
-import { validateMcpEndpoint } from "@/lib/mcp-validator";
+import { createNodeClient, agents, agentVersions } from "@repo/db";
+import { auth } from "@clerk/nextjs/server";
+import { confirmUpload } from "@/lib/storage/upload-package";
 import { generateSlug, ensureUniqueSlug } from "@/lib/slug-generator";
 import { ensureCreator } from "@/lib/actions/creator-actions";
 import { buildDiscoveryQuery } from "@/lib/agent-discovery-query";
 
 const VALID_CATEGORIES = [
-  "marketing", "assistant", "coding", "trading", "social", "copywriting", "pm",
+  "marketing", "assistant", "copywriting", "coding", "pm",
+  "trading", "social", "devops", "data", "design",
 ];
 
 function getDb() {
@@ -26,9 +26,8 @@ export async function GET(request: Request) {
       q: url.searchParams.get("q") || undefined,
       category: url.searchParams.get("category") || undefined,
       trustTier: url.searchParams.get("trustTier") || undefined,
-      minPrice: url.searchParams.get("minPrice") || undefined,
-      maxPrice: url.searchParams.get("maxPrice") || undefined,
-      sort: url.searchParams.get("sort") || "trustScore",
+      tags: url.searchParams.get("tags") || undefined,
+      sort: url.searchParams.get("sort") || "downloads",
       order: url.searchParams.get("order") || "desc",
       limit: Math.max(1, Math.min(parseInt(url.searchParams.get("limit") || "20", 10) || 20, 100)),
       offset: Math.max(0, parseInt(url.searchParams.get("offset") || "0", 10) || 0),
@@ -50,82 +49,62 @@ export async function GET(request: Request) {
   }
 }
 
-/** POST /api/agents — create agent (authenticated, validates MCP endpoint) */
+/** POST /api/agents — create agent with package (authenticated) */
 export async function POST(request: Request) {
   try {
-    const session = await auth();
-    if (!session?.user) {
+    const { userId } = await auth();
+    if (!userId) {
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
     }
 
-    const walletAddress = (session.user as { address?: string }).address;
-    if (!walletAddress) {
-      return NextResponse.json({ error: "No wallet address in session" }, { status: 401 });
-    }
-
-    // Parse + validate body
     const body = await request.json();
-    const { endpoint, name, category, pricePerCall, description } = body;
+    const { name, description, category, tags, packageKey, version, changelog } = body;
 
-    // Required fields
-    if (!endpoint || typeof endpoint !== "string") {
-      return NextResponse.json({ error: "endpoint is required", field: "endpoint" }, { status: 400 });
-    }
     if (!name || typeof name !== "string" || name.length < 3 || name.length > 100) {
       return NextResponse.json({ error: "name must be 3-100 chars", field: "name" }, { status: 400 });
     }
     if (!category || !VALID_CATEGORIES.includes(category)) {
       return NextResponse.json({ error: `category must be one of: ${VALID_CATEGORIES.join(", ")}`, field: "category" }, { status: 400 });
     }
-    if (!pricePerCall || isNaN(Number(pricePerCall)) || Number(pricePerCall) <= 0) {
-      return NextResponse.json({ error: "pricePerCall must be a positive number", field: "pricePerCall" }, { status: 400 });
+    if (!version || typeof version !== "string" || !/^\d+\.\d+\.\d+/.test(version)) {
+      return NextResponse.json({ error: "version must be semver (e.g. 1.0.0)", field: "version" }, { status: 400 });
+    }
+    if (!packageKey || typeof packageKey !== "string") {
+      return NextResponse.json({ error: "packageKey is required", field: "packageKey" }, { status: 400 });
     }
 
-    // Validate URL format (HTTPS required for production)
-    try {
-      const parsed = new URL(endpoint);
-      if (!["http:", "https:"].includes(parsed.protocol)) {
-        return NextResponse.json({ error: "endpoint must be HTTP(S)" }, { status: 400 });
-      }
-    } catch {
-      return NextResponse.json({ error: "Invalid endpoint URL", field: "endpoint" }, { status: 400 });
-    }
-
-    // Validate MCP endpoint
-    const validation = await validateMcpEndpoint(endpoint);
-    if (!validation.valid) {
-      return NextResponse.json({ error: validation.error, field: "endpoint" }, { status: 400 });
+    const upload = await confirmUpload(packageKey);
+    if (!upload.exists) {
+      return NextResponse.json({ error: "Package not found in storage. Upload first.", field: "packageKey" }, { status: 400 });
     }
 
     const db = getDb();
-
-    // Upsert creator record
-    const creatorId = await ensureCreator(walletAddress);
-
-    // Generate unique slug
+    const creatorId = await ensureCreator(userId);
     const slug = await ensureUniqueSlug(db, generateSlug(name));
 
-    // Auto-populate from MCP handshake
-    const agentName = name || validation.name || "Unnamed Agent";
-    const agentDescription = description || "";
-    const tools = validation.tools || [];
-
-    // Insert agent
     const [agent] = await db.insert(agents).values({
       slug,
       creatorId,
-      name: agentName,
-      description: agentDescription,
+      name,
+      description: description ?? "",
       category,
-      mcpEndpoint: endpoint,
-      creatorWallet: walletAddress,
-      pricePerCall: String(pricePerCall),
-      agentCard: validation.name ? { name: validation.name } : null,
-      tools: tools.length ? tools : null,
+      tags: Array.isArray(tags) ? tags : [],
+      currentVersion: version,
+      packageUrl: packageKey,
+      packageSize: upload.size ?? 0,
       status: "active",
     }).returning();
 
-    return NextResponse.json({ agent }, { status: 201 });
+    const [agentVersion] = await db.insert(agentVersions).values({
+      agentId: agent.id,
+      version,
+      packageUrl: packageKey,
+      packageSize: upload.size ?? 0,
+      sha256Hash: "pending",
+      changelog: changelog ?? null,
+    }).returning();
+
+    return NextResponse.json({ agent, version: agentVersion }, { status: 201 });
   } catch (err) {
     console.error("[POST /api/agents]", err);
     return NextResponse.json(

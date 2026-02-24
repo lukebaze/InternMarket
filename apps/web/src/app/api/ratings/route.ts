@@ -1,9 +1,8 @@
 import { NextResponse } from "next/server";
-import { createNodeClient } from "@repo/db";
-import { agents } from "@repo/db";
+import { createNodeClient, agents, creators } from "@repo/db";
 import { eq } from "drizzle-orm";
-import { auth } from "@/lib/auth";
-import { checkRatingEligibility, submitRating } from "@/lib/rating-service";
+import { auth } from "@clerk/nextjs/server";
+import { submitRating } from "@/lib/rating-service";
 
 function getDb() {
   const url = process.env.DATABASE_URL;
@@ -19,20 +18,14 @@ function stripHtml(input: string): string {
 /** POST /api/ratings — submit or update a rating (authenticated) */
 export async function POST(request: Request) {
   try {
-    const session = await auth();
-    if (!session?.user) {
+    const { userId } = await auth();
+    if (!userId) {
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
-    }
-
-    const wallet = (session.user as { address?: string }).address;
-    if (!wallet) {
-      return NextResponse.json({ error: "No wallet address" }, { status: 401 });
     }
 
     const body = await request.json();
     const { agentSlug, score, review } = body;
 
-    // Validate inputs
     if (!agentSlug || typeof agentSlug !== "string") {
       return NextResponse.json({ error: "agentSlug is required" }, { status: 400 });
     }
@@ -47,7 +40,6 @@ export async function POST(request: Request) {
 
     const db = getDb();
 
-    // Lookup agent by slug
     const [agent] = await db
       .select({ id: agents.id })
       .from(agents)
@@ -58,17 +50,21 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Agent not found" }, { status: 404 });
     }
 
-    // Check eligibility (must have completed transaction)
-    const { eligible, reason } = await checkRatingEligibility(db, agent.id, wallet);
-    if (!eligible) {
-      return NextResponse.json({ error: reason }, { status: 403 });
+    // Resolve userId from creators table via clerkUserId
+    const [creator] = await db
+      .select({ id: creators.id })
+      .from(creators)
+      .where(eq(creators.clerkUserId, userId))
+      .limit(1);
+
+    if (!creator) {
+      return NextResponse.json({ error: "Creator profile not found. Visit dashboard first." }, { status: 403 });
     }
 
-    // Submit rating (upsert) + recalculate avg
     const sanitizedReview = review ? stripHtml(review) : undefined;
     const rating = await submitRating(db, {
       agentId: agent.id,
-      userWallet: wallet,
+      userId: creator.id,
       score,
       review: sanitizedReview,
     });

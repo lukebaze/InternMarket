@@ -1,24 +1,21 @@
 import Link from "next/link";
-import { getDashboardStats, getMyTransactions } from "@/lib/actions/dashboard-actions";
-import { getMyAgents } from "@/lib/actions/dashboard-actions";
+import { getDashboardStats, getMyAgents, getMyDownloads } from "@/lib/actions/dashboard-actions";
 import { StatsOverview } from "@/components/dashboard/stats-overview";
 import { TransactionTable } from "@/components/dashboard/transaction-table";
 import { AgentRating } from "@/components/agents/agent-rating";
-import { formatUSDC } from "@/lib/utils";
 
 export default async function DashboardPage() {
-  const [stats, myAgents, { transactions }] = await Promise.all([
+  const [stats, myAgents, { downloads }] = await Promise.all([
     getDashboardStats(),
     getMyAgents(),
-    getMyTransactions({ limit: 5 }),
+    getMyDownloads({ limit: 5 }),
   ]);
 
   const recentAgents = myAgents.slice(0, 3);
-  const recentTxs = transactions.slice(0, 5);
+  const recentDownloads = downloads.slice(0, 5);
 
   return (
     <>
-      {/* Top bar */}
       <div className="flex items-center justify-between h-14 px-8 border-b border-bg-border shrink-0">
         <h1 className="font-ui text-base font-semibold text-text-primary">Overview</h1>
         <Link
@@ -29,7 +26,6 @@ export default async function DashboardPage() {
         </Link>
       </div>
 
-      {/* Content */}
       <div className="flex-1 overflow-y-auto p-8 space-y-6">
         <StatsOverview stats={stats} />
 
@@ -53,11 +49,10 @@ export default async function DashboardPage() {
             </div>
           ) : (
             <div className="border border-bg-border">
-              {/* Table header */}
               <div className="flex items-center px-4 py-2 border-b border-bg-border bg-bg-surface">
                 <span className="flex-1 font-mono text-[10px] text-text-muted uppercase tracking-wide">Name</span>
-                <span className="w-20 font-mono text-[10px] text-text-muted uppercase tracking-wide text-right">Calls</span>
-                <span className="w-24 font-mono text-[10px] text-text-muted uppercase tracking-wide text-right">Revenue</span>
+                <span className="w-24 font-mono text-[10px] text-text-muted uppercase tracking-wide text-right">Downloads</span>
+                <span className="w-20 font-mono text-[10px] text-text-muted uppercase tracking-wide text-right">Version</span>
                 <span className="w-20 font-mono text-[10px] text-text-muted uppercase tracking-wide text-right">Rating</span>
               </div>
               {recentAgents.map((agent) => (
@@ -67,15 +62,15 @@ export default async function DashboardPage() {
                 >
                   <div className="flex-1 flex items-center gap-2">
                     <p className="font-mono text-xs font-medium text-text-primary">{agent.name}</p>
-                    <span className="inline-flex px-1.5 py-0.5 bg-bg-border font-mono text-[8px] text-text-secondary">
-                      {agent.status ?? "Active"}
+                    <span className="inline-flex px-1.5 py-0.5 bg-bg-border font-mono text-[8px] text-text-secondary capitalize">
+                      {agent.status}
                     </span>
                   </div>
-                  <span className="w-20 font-mono text-xs text-text-tertiary text-right">
-                    {agent.totalCalls.toLocaleString()}
+                  <span className="w-24 font-mono text-xs text-text-tertiary text-right">
+                    {(agent.downloads ?? 0).toLocaleString()}
                   </span>
-                  <span className="w-24 font-mono text-xs text-text-primary text-right">
-                    {formatUSDC(agent.pricePerCall)}
+                  <span className="w-20 font-mono text-xs text-text-primary text-right">
+                    v{agent.currentVersion}
                   </span>
                   <div className="w-20 flex justify-end">
                     <AgentRating rating={agent.ratingAvg} />
@@ -86,16 +81,13 @@ export default async function DashboardPage() {
           )}
         </section>
 
-        {/* Recent transactions */}
-        {recentTxs.length > 0 && (
+        {/* Recent downloads */}
+        {recentDownloads.length > 0 && (
           <section>
             <div className="flex items-center justify-between mb-4">
-              <h2 className="font-ui text-sm font-semibold text-text-primary">Recent Transactions</h2>
-              <Link href="/dashboard/transactions" className="font-mono text-[11px] text-lime hover:brightness-110">
-                View All →
-              </Link>
+              <h2 className="font-ui text-sm font-semibold text-text-primary">Recent Downloads</h2>
             </div>
-            <TransactionTable transactions={recentTxs} />
+            <TransactionTable downloads={recentDownloads} />
           </section>
         )}
       </div>

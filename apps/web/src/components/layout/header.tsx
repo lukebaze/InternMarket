@@ -4,10 +4,10 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
-import { WalletButton } from "@/components/auth/wallet-button";
+import { SignedIn, SignedOut, SignInButton, UserButton } from "@clerk/nextjs";
 
 const NAV_LINKS = [
-  { href: "/agents", label: "Browse Agents" },
+  { href: "/agents", label: "Browse Interns" },
   { href: "/dashboard", label: "Dashboard" },
   { href: "/docs", label: "Docs" },
 ];
@@ -43,8 +43,17 @@ export function Header() {
         </nav>
 
         <div className="flex items-center gap-3">
-          <div className="hidden sm:block">
-            <WalletButton />
+          <div className="hidden sm:flex items-center gap-2">
+            <SignedIn>
+              <UserButton afterSignOutUrl="/" />
+            </SignedIn>
+            <SignedOut>
+              <SignInButton mode="modal">
+                <button className="font-mono text-[13px] text-text-tertiary hover:text-text-secondary transition-colors px-3 py-1.5 border border-bg-border">
+                  Sign In
+                </button>
+              </SignInButton>
+            </SignedOut>
           </div>
 
           {/* Mobile hamburger */}

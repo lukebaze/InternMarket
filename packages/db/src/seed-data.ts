@@ -3,10 +3,11 @@
  * Extracted from seed.ts to keep files under 200 LOC.
  */
 
+// Demo clerkUserIds — static strings used as stable seed identities
 export const CREATORS_DATA = [
-  { walletAddress: "0xAlice000000000000000000000000000000000001", displayName: "Alice Builder", bio: "Full-stack agent creator", githubUsername: "alice-builder" },
-  { walletAddress: "0xBob00000000000000000000000000000000000002", displayName: "Bob DevTools", bio: "CLI tools and automation", githubUsername: "bob-devtools" },
-  { walletAddress: "0xCarol000000000000000000000000000000000003", displayName: "Carol AI", bio: "AI-powered agents for productivity" },
+  { clerkUserId: "demo_alice_001", displayName: "Alice Builder", bio: "Full-stack agent creator", githubUsername: "alice-builder" },
+  { clerkUserId: "demo_bob_002", displayName: "Bob DevTools", bio: "CLI tools and automation", githubUsername: "bob-devtools" },
+  { clerkUserId: "demo_carol_003", displayName: "Carol AI", bio: "AI-powered agents for productivity" },
 ] as const;
 
 /** creatorId is set dynamically after creators are inserted */
